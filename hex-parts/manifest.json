@@ -1,0 +1,52 @@
+[
+  {
+    "path": "velocidad/index.html",
+    "sha256_raw": "d67366645bbbecfaaee61b5c2b9b0e7d5e34b97cbc7240727a54908bcf501904",
+    "raw_size": 39940,
+    "gz_size": 10848,
+    "parts": [
+      "velocidad__index.html.part01.hex",
+      "velocidad__index.html.part02.hex"
+    ]
+  },
+  {
+    "path": "equilibrio/index.html",
+    "sha256_raw": "17bc905f0ad3d730f769ace0d35e862c340af942ebe110b2b5a2f9b96d9383e3",
+    "raw_size": 33772,
+    "gz_size": 9042,
+    "parts": [
+      "equilibrio__index.html.part01.hex",
+      "equilibrio__index.html.part02.hex"
+    ]
+  },
+  {
+    "path": "clasificador/index.html",
+    "sha256_raw": "3e5a7c9b667d4d4e88eb43631e170a3ed317763d12aee88a84a41c17ea5e9616",
+    "raw_size": 40921,
+    "gz_size": 9926,
+    "parts": [
+      "clasificador__index.html.part01.hex",
+      "clasificador__index.html.part02.hex"
+    ]
+  },
+  {
+    "path": "balanceador/assets/index-CQJLsIZd.js",
+    "sha256_raw": "8356a4b4c49f9455f98117b017abd3e3a77e12531fa123453501ff6b8d3eeb2f",
+    "raw_size": 224225,
+    "gz_size": 69443,
+    "parts": [
+      "balanceador__assets__index-CQJLsIZd.js.part01.hex",
+      "balanceador__assets__index-CQJLsIZd.js.part02.hex",
+      "balanceador__assets__index-CQJLsIZd.js.part03.hex",
+      "balanceador__assets__index-CQJLsIZd.js.part04.hex",
+      "balanceador__assets__index-CQJLsIZd.js.part05.hex",
+      "balanceador__assets__index-CQJLsIZd.js.part06.hex",
+      "balanceador__assets__index-CQJLsIZd.js.part07.hex",
+      "balanceador__assets__index-CQJLsIZd.js.part08.hex",
+      "balanceador__assets__index-CQJLsIZd.js.part09.hex",
+      "balanceador__assets__index-CQJLsIZd.js.part10.hex",
+      "balanceador__assets__index-CQJLsIZd.js.part11.hex",
+      "balanceador__assets__index-CQJLsIZd.js.part12.hex"
+    ]
+  }
+]
