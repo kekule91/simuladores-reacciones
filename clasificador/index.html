@@ -1,20 +1,672 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es-AR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clasificador de reacciones — cargando…</title>
+  <title>Clasificador de Reacciones Químicas - Simulador Educativo</title>
+  <meta name="description" content="Simulador educativo de química para clasificar reacciones integrando los tres niveles de Johnstone: macro, submicro y simbólico.">
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #16202B; }
-    code { background: #F1F5F9; padding: 0.1em 0.35em; border-radius: 4px; }
-    a { color: #1F5C8B; }
+    :root {
+      --bg: #F7FAFC; --panel: #FFFFFF; --border: #CFDAE4; --text: #16202B; --secondary: #5A6B7B;
+      --correct-text: #1B7A4B; --correct-bg: #E6F4EC; --warning-text: #8A5A00; --warning-bg: #FDF3E0;
+      --interactive-text: #1F5C8B; --interactive-bg: #E8F1F8; --radius: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg); color: var(--text); line-height: 1.5; padding: 12px 8px;
+      display: flex; justify-content: center; overflow-x: hidden;
+    }
+    .container { width: 100%; max-width: 800px; display: flex; flex-direction: column; gap: 12px; }
+    header {
+      background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;
+    }
+    .header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    h1 { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+    .badge-progress {
+      background: var(--interactive-bg);
+      color: var(--interactive-text);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 16px;
+      border: 1px solid #BFD5E7;
+    }
+    p.lead { color: var(--secondary); font-size: 0.92rem; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .section-label {
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+      color: var(--secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .equation-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      text-align: center;
+      font-size: 1.18rem;
+      font-weight: 600;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .equation-box sub { font-size: 0.72em; }
+    .macro-box {
+      background: #FAFBFD;
+      border-left: 4px solid var(--interactive-text);
+      padding: 10px 12px;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      font-size: 0.9rem;
+    }
+    .macro-box strong { color: var(--interactive-text); }
+    .submicro-container {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .animation-stage {
+      width: 100%;
+      min-height: 100px;
+      background: #FFFFFF;
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    svg.diagram { width: 100%; height: auto; max-height: 105px; display: block; }
+    .anim-caption { font-size: 0.84rem; color: var(--secondary); text-align: center; min-height: 20px; }
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+    }
+    button.opt-btn {
+      background: var(--interactive-bg);
+      color: var(--interactive-text);
+      border: 1px solid #C2D8EC;
+      padding: 10px 6px;
+      border-radius: var(--radius);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s, border-color 0.15s;
+      min-height: 44px;
+    }
+    button.opt-btn:hover:not(:disabled) { background: #D8E7F4; border-color: var(--interactive-text); }
+    button.opt-btn:focus-visible { outline: 2px solid var(--interactive-text); outline-offset: 2px; }
+    button.opt-btn:disabled { cursor: not-allowed; opacity: 0.75; }
+    button.opt-btn.correct-choice {
+      background: var(--correct-bg) !important;
+      color: var(--correct-text) !important;
+      border-color: #A3D8B8 !important;
+    }
+    button.opt-btn.wrong-choice {
+      background: var(--warning-bg) !important;
+      color: var(--warning-text) !important;
+      border-color: #E6C88D !important;
+    }
+    .feedback-panel {
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.9rem;
+    }
+    .feedback-panel.success { background: var(--correct-bg); border: 1px solid #BCE3CB; color: #0E5231; }
+    .feedback-panel.warning { background: var(--warning-bg); border: 1px solid #F6DDA8; color: #613F00; }
+    .actions-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .btn-secondary {
+      background: transparent;
+      color: var(--secondary);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: var(--radius);
+      font-size: 0.86rem;
+      cursor: pointer;
+      font-weight: 500;
+      min-height: 40px;
+    }
+    .btn-secondary:hover:not(:disabled) { background: var(--bg); color: var(--text); }
+    .btn-secondary:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--interactive-text);
+      color: #FFFFFF;
+      border: none;
+      padding: 9px 18px;
+      border-radius: var(--radius);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      min-height: 40px;
+    }
+    .btn-primary:hover:not(:disabled) { opacity: 0.92; }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+    details.question-box {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--panel);
+      padding: 12px 14px;
+      font-size: 0.9rem;
+    }
+    details.question-box[open] { background: #FAFCFE; border-color: #BFD5E7; }
+    summary.question-title { font-weight: 600; color: var(--interactive-text); cursor: pointer; user-select: none; }
+    .question-answer {
+      margin-top: 8px;
+      color: var(--text);
+      line-height: 1.5;
+      font-size: 0.88rem;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }
+    .summary-card { text-align: center; gap: 14px; }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+      margin: 6px 0;
+    }
+    .summary-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 10px;
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .summary-item .cat-name { font-size: 0.8rem; font-weight: 600; color: var(--secondary); }
+    .summary-item .cat-score { font-size: 1.2rem; font-weight: 700; color: var(--text); }
+    .hidden { display: none !important; }
+    @media (max-width: 480px) {
+      body { padding: 8px 4px; }
+      .card, header { padding: 12px 10px; }
+      .options-grid { grid-template-columns: 1fr 1fr; }
+      .options-grid button:nth-child(5) { grid-column: span 2; }
+      .equation-box { font-size: 1.05rem; padding: 10px 6px; }
+    }
   </style>
 </head>
 <body>
-  <h1>Clasificador de reacciones</h1>
-  <p>Este archivo es un marcador. El simulador completo offline se restaura desde <code>hex-parts/</code>:</p>
-  <pre>python3 restore_from_hex.py</pre>
-  <p>Demo en línea: <a href="https://clasificador-de-reacciones-qu-micas.ai.studio/">https://clasificador-de-reacciones-qu-micas.ai.studio/</a></p>
-  <p>Si ya corriste el restore, recargá esta página (debería haberse reemplazado este stub).</p>
+
+<main class="container">
+  <header>
+    <div class="header-top">
+      <h1>Clasificador de Reacciones Químicas</h1>
+      <span id="progress-badge" class="badge-progress" aria-live="polite">Ecuación 1 de 15</span>
+    </div>
+    <p class="lead">
+      Mirá la ecuación balanceada con sus estados de agregación y elegí el tipo de reacción correspondiente. Observá cómo se reorganizan los átomos en los tres niveles de Johnstone.
+    </p>
+  </header>
+
+  <section id="game-section" class="card" aria-labelledby="symbolic-title">
+    <div>
+      <div id="symbolic-title" class="section-label"><span>Simbólico</span> &bull; Ecuación balanceada real</div>
+      <div id="equation-display" class="equation-box" aria-live="polite"></div>
+    </div>
+
+    <div class="macro-box" id="macro-container">
+      <strong>Nivel Macroscópico:</strong> <span id="macro-text">Cargando observación...</span>
+    </div>
+
+    <div class="submicro-container">
+      <div class="section-label"><span>Submicroscópico</span> &bull; Choques y conservación de átomos</div>
+      <div class="animation-stage" id="stage-box" aria-label="Animación de choque y reagrupación atómica">
+        <svg id="animation-svg" class="diagram" viewBox="0 0 520 100" role="img"></svg>
+      </div>
+      <div id="anim-caption" class="anim-caption">Elegí una opción para ver la animación del reordenamiento atómico.</div>
+    </div>
+
+    <div>
+      <div class="section-label" style="margin-bottom: 8px;"><span>Tu elección:</span> ¿Qué tipo de reacción es?</div>
+      <div class="options-grid" role="group" aria-label="Tipos de reacciones químicas">
+        <button type="button" class="opt-btn" data-type="sintesis" aria-label="Clasificar como Síntesis">Síntesis</button>
+        <button type="button" class="opt-btn" data-type="descomposicion" aria-label="Clasificar como Descomposición">Descomposición</button>
+        <button type="button" class="opt-btn" data-type="sust_simple" aria-label="Clasificar como Sustitución Simple">Sustitución Simple</button>
+        <button type="button" class="opt-btn" data-type="doble_sust" aria-label="Clasificar como Doble Sustitución">Doble Sustitución</button>
+        <button type="button" class="opt-btn" data-type="combustion" aria-label="Clasificar como Combustión">Combustión</button>
+      </div>
+    </div>
+
+    <div id="feedback-box" class="feedback-panel hidden" aria-live="polite"></div>
+
+    <div class="actions-bar">
+      <button type="button" id="btn-restart" class="btn-secondary" aria-label="Reiniciar tanda">Reiniciar tanda</button>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" id="btn-replay" class="btn-secondary hidden" aria-label="Repetir animación">Repetir animación</button>
+        <button type="button" id="btn-next" class="btn-primary" disabled aria-label="Avanzar a la siguiente reacción">Siguiente reacción &rarr;</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="summary-section" class="card summary-card hidden" aria-labelledby="summary-title">
+    <h2 id="summary-title" style="font-size: 1.2rem; font-weight: 700;">Ronda completada</h2>
+    <p class="lead">
+      Mirá el resumen de aciertos por cada tipo de reacción. En todas las transformaciones se conservaron los átomos en cantidad y tipo.
+    </p>
+    <div class="summary-grid" id="summary-metrics"></div>
+    <p style="font-size: 0.88rem; color: var(--secondary);">Sin tiempos ni presiones: podés reiniciar para ejercitar con una secuencia aleatoria nueva.</p>
+    <div style="margin-top: 6px;">
+      <button type="button" id="btn-restart-final" class="btn-primary" aria-label="Comenzar otra tanda">Comenzar nueva tanda</button>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="questions-panel-title">
+    <div class="section-label" id="questions-panel-title"><span>¿Qué observás?</span> &bull; Preguntas de indagación química</div>
+
+    <details class="question-box">
+      <summary class="question-title">1. ¿Qué tienen en común todas las reacciones de combustión?</summary>
+      <div class="question-answer">
+        En todas las combustiones completas de sustancias orgánicas interviene un combustible y oxígeno gaseoso (O<sub>2</sub>) como comburente. Los productos formados son siempre dióxido de carbono (CO<sub>2</sub>) y vapor de agua (H<sub>2</sub>O), acompañados por una fuerte liberación de energía térmica y lumínica (llama). Cada átomo de C, H y O de los reactivos se conserva rigurosamente en los productos.
+      </div>
+    </details>
+
+    <details class="question-box">
+      <summary class="question-title">2. ¿Cómo distinguís sustitución simple de doble mirando solo los reactivos?</summary>
+      <div class="question-answer">
+        Observá exclusivamente a la izquierda de la flecha:
+        <br>&bull; En la <strong>sustitución simple</strong> tenés <em>un elemento libre</em> (como Zn, Mg o Fe metálico elemental) junto a <em>un compuesto</em> acuoso.
+        <br>&bull; En la <strong>doble sustitución</strong> tenés <em>dos compuestos</em> iniciales (generalmente sales, ácidos o bases iónicas) que intercambian mutuamente sus iones. No hay sustancias elementales libres entre los reactivos.
+      </div>
+    </details>
+
+    <details class="question-box">
+      <summary class="question-title">3. ¿Por qué 2 Mg(s) + O<sub>2</sub>(g) &rarr; 2 MgO(s) puede parecer combustión y síntesis a la vez?</summary>
+      <div class="question-answer">
+        ¡Excelente observación!
+        <br>&bull; Estructuralmente es una <strong>síntesis</strong> porque dos sustancias simples se unen para originar <em>un único producto</em>: óxido de magnesio (red cristalina constituida por unidades de fórmula iónicas Mg<sup>2+</sup> y O<sup>2-</sup>, no por moléculas).
+        <br>&bull; A nivel fenoménico macroscópico arde vigorosamente con el oxígeno liberando un destello cegador y calor, semejante a una combustión. En el programa de secundaria se clasifica primordialmente como síntesis por responder al esquema A + B &rarr; AB.
+      </div>
+    </details>
+  </section>
+</main>
+
+<script>
+  /* Base de datos de 15 reacciones reales verificadas (3 por cada tipo) */
+  const REACCIONES = [
+    // Síntesis
+    { id: 1, tipo: 'sintesis', nombreTipo: 'Síntesis', ecuacionHtml: '2 Mg(s) + O<sub>2</sub>(g) &rarr; 2 MgO(s)', macro: 'La cinta de magnesio plateado arde con un destello blanco enceguecedor y produce un polvo blanco quebradizo de óxido de magnesio.', pista: 'Dos sustancias simples se combinan para originar un único producto compuesto (unidades de fórmula MgO).', esquema: 'A + B &rarr; AB', bloques: { tipo: 'sintesis', a: 'Mg', b: 'O', ab: 'MgO', colA: '#1F5C8B', colB: '#D97706' } },
+    { id: 2, tipo: 'sintesis', nombreTipo: 'Síntesis', ecuacionHtml: 'N<sub>2</sub>(g) + 3 H<sub>2</sub>(g) &rarr; 2 NH<sub>3</sub>(g)', macro: 'Dos gases inodoros e incoloros se combinan a alta presión y temperatura sobre hierro metálico para formar amoníaco con olor picante.', pista: 'Dos elementos moleculares gaseosos se integran dando un único producto gaseoso.', esquema: 'A + B &rarr; AB', bloques: { tipo: 'sintesis', a: 'N', b: 'H', ab: 'NH3', colA: '#1F5C8B', colB: '#1B7A4B' } },
+    { id: 3, tipo: 'sintesis', nombreTipo: 'Síntesis', ecuacionHtml: '2 H<sub>2</sub>(g) + O<sub>2</sub>(g) &rarr; 2 H<sub>2</sub>O(l)', macro: 'Gases incoloros que detonan con una chispa liberando calor y condensando gotas de agua líquida.', pista: 'Dos sustancias elementales se unen para constituir una sola sustancia compuesta líquida.', esquema: 'A + B &rarr; AB', bloques: { tipo: 'sintesis', a: 'H', b: 'O', ab: 'H2O', colA: '#1B7A4B', colB: '#D97706' } },
+    // Descomposición
+    { id: 4, tipo: 'descomposicion', nombreTipo: 'Descomposición', ecuacionHtml: 'CaCO<sub>3</sub>(s) &rarr; CaO(s) + CO<sub>2</sub>(g)', macro: 'Piedra caliza sólida que al calentarse intensamente en horno desprende dióxido de carbono gaseoso y deja cal viva sólida.', pista: 'Un solo compuesto inicial se desdobla por acción del calor en dos sustancias más simples.', esquema: 'AB &rarr; A + B', bloques: { tipo: 'descomposicion', ab: 'CaCO3', a: 'CaO', b: 'CO2', colA: '#5A6B7B', colB: '#7C3AED' } },
+    { id: 5, tipo: 'descomposicion', nombreTipo: 'Descomposición', ecuacionHtml: '2 H<sub>2</sub>O<sub>2</sub>(ac) &rarr; 2 H<sub>2</sub>O(l) + O<sub>2</sub>(g)', macro: 'El agua oxigenada líquida efervesce rápidamente ante una pizca de catalizador, desprendiendo burbujas continuas de oxígeno.', pista: 'Un único compuesto reactivo se escinde produciendo agua líquida y oxígeno gaseoso libre.', esquema: 'AB &rarr; A + B', bloques: { tipo: 'descomposicion', ab: 'H2O2', a: 'H2O', b: 'O2', colA: '#1F5C8B', colB: '#D97706' } },
+    { id: 6, tipo: 'descomposicion', nombreTipo: 'Descomposición', ecuacionHtml: '2 KClO<sub>3</sub>(s) &rarr; 2 KCl(s) + 3 O<sub>2</sub>(g)', macro: 'Cristales blancos que al calentarse funden y liberan abundante gas oxígeno capaz de reavivar una astilla al rojo.', pista: 'Una sal oxigenada ternaria única se fragmenta en una sal binaria sólida y gas diatómico.', esquema: 'AB &rarr; A + B', bloques: { tipo: 'descomposicion', ab: 'KClO3', a: 'KCl', b: 'O2', colA: '#1B7A4B', colB: '#D97706' } },
+    // Sustitución simple
+    { id: 7, tipo: 'sust_simple', nombreTipo: 'Sustitución Simple', ecuacionHtml: 'Zn(s) + CuSO<sub>4</sub>(ac) &rarr; ZnSO<sub>4</sub>(ac) + Cu(s)', macro: 'La solución azul de cobre se aclara gradualmente mientras la placa de cinc se recubre de una capa de cobre metálico rojizo.', pista: 'El cinc metálico más activo en la serie electroquímica desplaza al catión cobre de su sal.', esquema: 'A + BC &rarr; AC + B', bloques: { tipo: 'sust_simple', a: 'Zn', b: 'Cu', c: 'SO4', colA: '#1F5C8B', colB: '#B45309', colC: '#0D9488' } },
+    { id: 8, tipo: 'sust_simple', nombreTipo: 'Sustitución Simple', ecuacionHtml: 'Mg(s) + 2 HCl(ac) &rarr; MgCl<sub>2</sub>(ac) + H<sub>2</sub>(g)', macro: 'La tira de magnesio se disuelve de inmediato con fuerte efervescencia de hidrógeno gaseoso y calentamiento del tubo.', pista: 'Un metal activo libre desplaza al hidrógeno del ácido clorhídrico liberándolo como gas H2.', esquema: 'A + BC &rarr; AC + B', bloques: { tipo: 'sust_simple', a: 'Mg', b: 'H', c: 'Cl', colA: '#1F5C8B', colB: '#1B7A4B', colC: '#D97706' } },
+    { id: 9, tipo: 'sust_simple', nombreTipo: 'Sustitución Simple', ecuacionHtml: 'Fe(s) + CuSO<sub>4</sub>(ac) &rarr; FeSO<sub>4</sub>(ac) + Cu(s)', macro: 'Un clavo de hierro sumergido en solución azulada se recubre rápidamente de cobre rojizo y el líquido toma un tinte verdoso.', pista: 'El hierro elemental desplaza al ion cobre de la solución acuosa porque el Fe es más activo que el Cu.', esquema: 'A + BC &rarr; AC + B', bloques: { tipo: 'sust_simple', a: 'Fe', b: 'Cu', c: 'SO4', colA: '#475569', colB: '#B45309', colC: '#0D9488' } },
+    // Doble sustitución
+    { id: 10, tipo: 'doble_sust', nombreTipo: 'Doble Sustitución', ecuacionHtml: 'AgNO<sub>3</sub>(ac) + NaCl(ac) &rarr; AgCl(s) + NaNO<sub>3</sub>(ac)', macro: 'Al juntar dos soluciones transparentes se forma un precipitado lechoso blanco de cloruro de plata que decanta.', pista: 'Dos compuestos iónicos disueltos intercambian aniones; precipita el compuesto insoluble AgCl.', esquema: 'AB + CD &rarr; AD + CB', bloques: { tipo: 'doble_sust', a: 'Ag', b: 'NO3', c: 'Na', d: 'Cl', colA: '#6366F1', colB: '#0EA5E9', colC: '#F59E0B', colD: '#10B981' } },
+    { id: 11, tipo: 'doble_sust', nombreTipo: 'Doble Sustitución', ecuacionHtml: 'BaCl<sub>2</sub>(ac) + Na<sub>2</sub>SO<sub>4</sub>(ac) &rarr; BaSO<sub>4</sub>(s) + 2 NaCl(ac)', macro: 'Dos líquidos incoloros forman una turbidez blanca densa instantánea de sulfato de bario insoluble.', pista: 'Dos sales intercambian sus iones formando el precipitado sólido BaSO4.', esquema: 'AB + CD &rarr; AD + CB', bloques: { tipo: 'doble_sust', a: 'Ba', b: 'Cl', c: 'Na', d: 'SO4', colA: '#8B5CF6', colB: '#10B981', colC: '#F59E0B', colD: '#EC4899' } },
+    { id: 12, tipo: 'doble_sust', nombreTipo: 'Doble Sustitución', ecuacionHtml: 'HCl(ac) + NaOH(ac) &rarr; NaCl(ac) + H<sub>2</sub>O(l)', macro: 'Neutralización ácido-base sin precipitado pero con notable aumento de temperatura en el recipiente.', pista: 'Los iones H+ y OH- intercambian sus parejas y forman agua líquida molecular muy estable.', esquema: 'AB + CD &rarr; AD + CB', bloques: { tipo: 'doble_sust', a: 'H', b: 'Cl', c: 'Na', d: 'OH', colA: '#EF4444', colB: '#10B981', colC: '#F59E0B', colD: '#3B82F6' } },
+    // Combustión
+    { id: 13, tipo: 'combustion', nombreTipo: 'Combustión', ecuacionHtml: 'C<sub>3</sub>H<sub>8</sub>(g) + 5 O<sub>2</sub>(g) &rarr; 3 CO<sub>2</sub>(g) + 4 H<sub>2</sub>O(g)', macro: 'El gas propano arde con llama azul vigorosa desprendiendo calor, dióxido de carbono y vapor de agua.', pista: 'Un hidrocarburo reacciona con O2 produciendo CO2, H2O y liberando energía térmica.', esquema: 'Combustible + O<sub>2</sub> &rarr; CO<sub>2</sub> + H<sub>2</sub>O', bloques: { tipo: 'combustion', fuel: 'C3H8', colFuel: '#1F5C8B' } },
+    { id: 14, tipo: 'combustion', nombreTipo: 'Combustión', ecuacionHtml: 'CH<sub>4</sub>(g) + 2 O<sub>2</sub>(g) &rarr; CO<sub>2</sub>(g) + 2 H<sub>2</sub>O(g)', macro: 'El gas metano de la hornalla arde en combustión completa liberando calor y empañando superficies frías con vapor.', pista: 'Un alcano se oxida totalmente con oxígeno comburente dando dióxido de carbono y agua gaseosa.', esquema: 'Combustible + O<sub>2</sub> &rarr; CO<sub>2</sub> + H<sub>2</sub>O', bloques: { tipo: 'combustion', fuel: 'CH4', colFuel: '#1F5C8B' } },
+    { id: 15, tipo: 'combustion', nombreTipo: 'Combustión', ecuacionHtml: 'C<sub>2</sub>H<sub>5</sub>OH(l) + 3 O<sub>2</sub>(g) &rarr; 2 CO<sub>2</sub>(g) + 3 H<sub>2</sub>O(g)', macro: 'El bioetanol líquido arde con llama limpia liberando calor y evaporándose por completo sin dejar cenizas.', pista: 'Un compuesto orgánico reacciona enérgicamente con dioxígeno gaseoso rindiendo CO2 y H2O.', esquema: 'Combustible + O<sub>2</sub> &rarr; CO<sub>2</sub> + H<sub>2</sub>O', bloques: { tipo: 'combustion', fuel: 'C2H5OH', colFuel: '#1F5C8B' } }
+  ];
+
+  /* Justificaciones pedagógicas al descartar una opción */
+  const ERRORES_TIPO = {
+    sintesis: 'Elegiste Síntesis, pero en una síntesis debe formarse un único producto a partir de dos o más reactivos (A + B &rarr; AB).',
+    descomposicion: 'Elegiste Descomposición, pero en una descomposición debe partirse de un único reactivo que se divide (AB &rarr; A + B).',
+    sust_simple: 'Elegiste Sustitución Simple, pero acá no hay un elemento simple libre desplazando a otro en un compuesto (A + BC &rarr; AC + B).',
+    doble_sust: 'Elegiste Doble Sustitución, pero acá no ocurre un intercambio recíproco de iones entre dos compuestos (AB + CD &rarr; AD + CB).',
+    combustion: 'Elegiste Combustión, pero en una combustión debe reaccionar un combustible con O2 para generar CO2 y H2O liberando calor.'
+  };
+
+  /* Variables de estado */
+  let ordenPreguntas = [];
+  let indiceActual = 0;
+  let respondido = false;
+  let animacionEnCurso = false;
+  let aciertosPorTipo = {
+    sintesis: { aciertos: 0, total: 0 },
+    descomposicion: { aciertos: 0, total: 0 },
+    sust_simple: { aciertos: 0, total: 0 },
+    doble_sust: { aciertos: 0, total: 0 },
+    combustion: { aciertos: 0, total: 0 }
+  };
+
+  /* Nodos del DOM */
+  const eqDisplay = document.getElementById('equation-display');
+  const macroText = document.getElementById('macro-text');
+  const progressBadge = document.getElementById('progress-badge');
+  const animSvg = document.getElementById('animation-svg');
+  const animCaption = document.getElementById('anim-caption');
+  const feedbackBox = document.getElementById('feedback-box');
+  const btnNext = document.getElementById('btn-next');
+  const btnReplay = document.getElementById('btn-replay');
+  const btnRestart = document.getElementById('btn-restart');
+  const btnRestartFinal = document.getElementById('btn-restart-final');
+  const optButtons = document.querySelectorAll('.opt-btn');
+  const gameSection = document.getElementById('game-section');
+  const summarySection = document.getElementById('summary-section');
+  const summaryMetrics = document.getElementById('summary-metrics');
+
+  /* Inicializar o reiniciar tanda de 15 preguntas */
+  function iniciarTanda() {
+    ordenPreguntas = [...Array(REACCIONES.length).keys()].sort(() => Math.random() - 0.5);
+    indiceActual = 0;
+    animacionEnCurso = false;
+    aciertosPorTipo = {
+      sintesis: { aciertos: 0, total: 0 },
+      descomposicion: { aciertos: 0, total: 0 },
+      sust_simple: { aciertos: 0, total: 0 },
+      doble_sust: { aciertos: 0, total: 0 },
+      combustion: { aciertos: 0, total: 0 }
+    };
+    REACCIONES.forEach(r => { aciertosPorTipo[r.tipo].total++; });
+    summarySection.classList.add('hidden');
+    gameSection.classList.remove('hidden');
+    cargarReaccion(0);
+  }
+
+  /* Cargar reacción y desbloquear controles */
+  function cargarReaccion(idx) {
+    respondido = false;
+    animacionEnCurso = false;
+    const reaccion = REACCIONES[ordenPreguntas[idx]];
+    progressBadge.textContent = `Ecuación ${idx + 1} de ${REACCIONES.length}`;
+    eqDisplay.innerHTML = reaccion.ecuacionHtml;
+    macroText.textContent = reaccion.macro;
+
+    optButtons.forEach(btn => {
+      btn.disabled = false;
+      btn.classList.remove('correct-choice', 'wrong-choice');
+    });
+
+    feedbackBox.className = 'feedback-panel hidden';
+    feedbackBox.innerHTML = '';
+    btnNext.disabled = true;
+    btnReplay.classList.add('hidden');
+
+    animSvg.innerHTML = `
+      <rect x="0" y="0" width="520" height="100" fill="#FFFFFF" />
+      <text x="260" y="52" font-size="13" font-weight="600" fill="#5A6B7B" text-anchor="middle" dominant-baseline="central">
+        Reorganización atómica: los átomos no se crean ni se destruyen, se reordenan.
+      </text>
+    `;
+    animCaption.textContent = 'Elegí una opción para ver la animación del reordenamiento atómico.';
+  }
+
+  /* Animaciones SVG de colisión y reordenamiento de partículas */
+  function animarReagrupacion(reaccion) {
+    animacionEnCurso = true;
+    btnReplay.disabled = true;
+    const b = reaccion.bloques;
+
+    if (b.tipo === 'sintesis') {
+      animCaption.innerHTML = `<strong>Choque y unión:</strong> Los bloques A y B colisionan de frente y se combinan en [AB]. Se conservan todos los átomos.`;
+      animSvg.innerHTML = `
+        <style>
+          @keyframes clashA { 0% { transform: translateX(0); } 45% { transform: translateX(95px); } 55% { transform: translateX(85px); } 100% { transform: translateX(100px); } }
+          @keyframes clashB { 0% { transform: translateX(0); } 45% { transform: translateX(-95px); } 55% { transform: translateX(-85px); } 100% { transform: translateX(-100px); } }
+          @keyframes sWave { 0%, 40% { opacity: 0; transform: scale(0.3); } 48% { opacity: 1; transform: scale(1.4); } 65%, 100% { opacity: 0; transform: scale(2.2); } }
+          @keyframes fadeP { 0%, 40% { opacity: 1; } 48%, 100% { opacity: 0; } }
+          @keyframes lblP { 0%, 55% { opacity: 0; } 100% { opacity: 1; } }
+          .sintA { animation: clashA 1.8s ease-in-out forwards; }
+          .sintB { animation: clashB 1.8s ease-in-out forwards; }
+          .plusS { animation: fadeP 1.8s ease-in-out forwards; }
+          .waveS { transform-origin: 260px 50px; animation: sWave 1.8s ease-in-out forwards; }
+          .lblP { animation: lblP 1.8s ease-in-out forwards; }
+        </style>
+        <rect x="0" y="0" width="520" height="100" fill="#FFFFFF"/>
+        <text x="260" y="50" font-size="22" font-weight="700" fill="#5A6B7B" text-anchor="middle" dominant-baseline="central" class="plusS">+</text>
+        <circle cx="260" cy="50" r="18" fill="none" stroke="#D97706" stroke-width="2.5" class="waveS"/>
+        <g class="sintA">
+          <rect x="110" y="26" width="55" height="48" rx="6" fill="${b.colA}" stroke="#16202B" stroke-width="1.5"/>
+          <text x="137" y="50" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">${b.a}</text>
+        </g>
+        <g class="sintB">
+          <rect x="355" y="26" width="55" height="48" rx="6" fill="${b.colB}" stroke="#16202B" stroke-width="1.5"/>
+          <text x="382" y="50" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">${b.b}</text>
+        </g>
+        <text x="260" y="86" font-size="12" font-weight="700" fill="#1B7A4B" text-anchor="middle" class="lblP">Producto único: [${b.ab}]</text>
+      `;
+    } else if (b.tipo === 'descomposicion') {
+      animCaption.innerHTML = `<strong>Ruptura por energía:</strong> El enlace de [AB] se rompe por calor o catalizador y se separan los fragmentos A y B.`;
+      animSvg.innerHTML = `
+        <style>
+          @keyframes splitA { 0% { transform: translateX(0); } 30% { transform: translateX(5px); } 45% { transform: translateX(-20px); } 100% { transform: translateX(-105px); } }
+          @keyframes splitB { 0% { transform: translateX(0); } 30% { transform: translateX(-5px); } 45% { transform: translateX(20px); } 100% { transform: translateX(105px); } }
+          @keyframes sparkB { 0%, 25% { opacity: 0; transform: scale(0.5); } 35% { opacity: 1; transform: scale(1.3); } 50%, 100% { opacity: 0; } }
+          @keyframes appSign { 0%, 45% { opacity: 0; } 100% { opacity: 1; } }
+          .dA { animation: splitA 1.8s ease-in-out forwards; }
+          .dB { animation: splitB 1.8s ease-in-out forwards; }
+          .spark { transform-origin: 260px 50px; animation: sparkB 1.8s ease-in-out forwards; }
+          .signD { animation: appSign 1.8s ease-in-out forwards; }
+        </style>
+        <rect x="0" y="0" width="520" height="100" fill="#FFFFFF"/>
+        <circle cx="260" cy="50" r="14" fill="#FDE68A" stroke="#D97706" stroke-width="2" class="spark"/>
+        <text x="260" y="50" font-size="22" font-weight="700" fill="#5A6B7B" text-anchor="middle" dominant-baseline="central" class="signD">+</text>
+        <g class="dA">
+          <rect x="205" y="26" width="55" height="48" rx="6" fill="${b.colA}" stroke="#16202B" stroke-width="1.5"/>
+          <text x="232" y="50" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">${b.a}</text>
+        </g>
+        <g class="dB">
+          <rect x="260" y="26" width="55" height="48" rx="6" fill="${b.colB}" stroke="#16202B" stroke-width="1.5"/>
+          <text x="287" y="50" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">${b.b}</text>
+        </g>
+        <text x="260" y="86" font-size="12" font-weight="700" fill="#1F5C8B" text-anchor="middle" class="signD">[${b.ab}] &rarr; [${b.a}] + [${b.b}]</text>
+      `;
+    } else if (b.tipo === 'sust_simple') {
+      animCaption.innerHTML = `<strong>Desplazamiento directo:</strong> El átomo libre [A] choca con [BC], expulsa a [B] y se enlaza con [C] formando [AC].`;
+      animSvg.innerHTML = `
+        <style>
+          @keyframes bumpA { 0% { transform: translateX(0); } 45% { transform: translateX(140px); } 55% { transform: translateX(130px); } 100% { transform: translateX(150px); } }
+          @keyframes ejectB { 0%, 45% { transform: translateX(0); } 60% { transform: translateX(50px); } 100% { transform: translateX(170px); } }
+          @keyframes stayC { 0%, 45% { transform: translateX(0); } 100% { transform: translateX(25px); } }
+          .hitA { animation: bumpA 1.9s ease-in-out forwards; }
+          .outB { animation: ejectB 1.9s ease-in-out forwards; }
+          .adjC { animation: stayC 1.9s ease-in-out forwards; }
+        </style>
+        <rect x="0" y="0" width="520" height="100" fill="#FFFFFF"/>
+        <g class="hitA">
+          <rect x="50" y="26" width="50" height="48" rx="6" fill="${b.colA}" stroke="#16202B" stroke-width="1.5"/>
+          <text x="75" y="50" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">${b.a}</text>
+        </g>
+        <g class="outB">
+          <rect x="235" y="26" width="50" height="48" rx="6" fill="${b.colB}" stroke="#16202B" stroke-width="1.5"/>
+          <text x="260" y="50" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">${b.b}</text>
+        </g>
+        <g class="adjC">
+          <rect x="285" y="26" width="50" height="48" rx="6" fill="${b.colC}" stroke="#16202B" stroke-width="1.5"/>
+          <text x="310" y="50" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">${b.c}</text>
+        </g>
+        <text x="260" y="88" font-size="12" font-weight="700" fill="#5A6B7B" text-anchor="middle">A + BC &rarr; AC + B</text>
+      `;
+    } else if (b.tipo === 'doble_sust') {
+      animCaption.innerHTML = `<strong>Intercambio mutuo de iones:</strong> [AB] y [CD] colisionan e intercambian sus parejas formando [AD] y [CB].`;
+      animSvg.innerHTML = `
+        <style>
+          @keyframes swapB { 0% { transform: translate(0, 0); } 45% { transform: translate(75px, -24px); } 100% { transform: translate(175px, 0); } }
+          @keyframes swapD { 0% { transform: translate(0, 0); } 45% { transform: translate(-75px, 24px); } 100% { transform: translate(-175px, 0); } }
+          .swB { animation: swapB 1.9s ease-in-out forwards; }
+          .swD { animation: swapD 1.9s ease-in-out forwards; }
+        </style>
+        <rect x="0" y="0" width="520" height="100" fill="#FFFFFF"/>
+        <rect x="85" y="26" width="48" height="48" rx="6" fill="${b.colA}" stroke="#16202B" stroke-width="1.5"/>
+        <text x="109" y="50" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">${b.a}</text>
+        <g class="swB">
+          <rect x="133" y="26" width="48" height="48" rx="6" fill="${b.colB}" stroke="#16202B" stroke-width="1.5"/>
+          <text x="157" y="50" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">${b.b}</text>
+        </g>
+        <rect x="290" y="26" width="48" height="48" rx="6" fill="${b.colC}" stroke="#16202B" stroke-width="1.5"/>
+        <text x="314" y="50" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">${b.c}</text>
+        <g class="swD">
+          <rect x="338" y="26" width="48" height="48" rx="6" fill="${b.colD}" stroke="#16202B" stroke-width="1.5"/>
+          <text x="362" y="50" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">${b.d}</text>
+        </g>
+        <text x="260" y="88" font-size="12" font-weight="700" fill="#5A6B7B" text-anchor="middle">AB + CD &rarr; AD + CB (intercambio iónico)</text>
+      `;
+    } else if (b.tipo === 'combustion') {
+      animCaption.innerHTML = `<strong>Oxidación enérgica:</strong> Los enlaces de C y H colisionan con O<sub>2</sub> liberando calor y reorganizándose en CO<sub>2</sub> y H<sub>2</sub>O.`;
+      animSvg.innerHTML = `
+        <style>
+          @keyframes rShift { 0% { transform: scale(1); opacity: 1; } 45% { transform: translateX(65px) scale(1.04); } 55% { opacity: 0.6; } 100% { transform: translateX(85px); opacity: 0; } }
+          @keyframes flmP { 0%, 35% { opacity: 0; transform: scale(0.3); } 50% { opacity: 1; transform: scale(1.3); } 65%, 100% { opacity: 0; } }
+          @keyframes pIn { 0%, 50% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: translateY(0); } }
+          .rShift { animation: rShift 1.9s ease-in-out forwards; }
+          .flm { transform-origin: 250px 50px; animation: flmP 1.9s ease-in-out forwards; }
+          .pIn { animation: pIn 1.9s ease-in-out forwards; }
+        </style>
+        <rect x="0" y="0" width="520" height="100" fill="#FFFFFF"/>
+        <g class="rShift">
+          <rect x="55" y="26" width="70" height="48" rx="6" fill="${b.colFuel}" stroke="#16202B" stroke-width="1.5"/>
+          <text x="90" y="50" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">${b.fuel}</text>
+          <text x="145" y="50" font-size="18" font-weight="700" fill="#5A6B7B" text-anchor="middle" dominant-baseline="central">+</text>
+          <rect x="165" y="26" width="55" height="48" rx="6" fill="#D97706" stroke="#16202B" stroke-width="1.5"/>
+          <text x="192" y="50" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">O₂</text>
+        </g>
+        <circle cx="250" cy="50" r="22" fill="#F59E0B" stroke="#B45309" stroke-width="2" class="flm"/>
+        <g class="pIn">
+          <text x="250" y="50" font-size="14" font-weight="700" fill="#B45309" text-anchor="middle" dominant-baseline="central">&rarr; &Delta; &rarr;</text>
+          <rect x="320" y="26" width="60" height="48" rx="6" fill="#7C3AED" stroke="#16202B" stroke-width="1.5"/>
+          <text x="350" y="50" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">CO₂</text>
+          <text x="395" y="50" font-size="18" font-weight="700" fill="#5A6B7B" text-anchor="middle" dominant-baseline="central">+</text>
+          <rect x="410" y="26" width="60" height="48" rx="6" fill="#0D9488" stroke="#16202B" stroke-width="1.5"/>
+          <text x="440" y="50" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">H₂O</text>
+        </g>
+        <text x="260" y="88" font-size="12" font-weight="700" fill="#B45309" text-anchor="middle">Combustible + O₂ &rarr; CO₂ + H₂O + calor</text>
+      `;
+    }
+
+    setTimeout(() => {
+      animacionEnCurso = false;
+      btnReplay.disabled = false;
+    }, 1950);
+  }
+
+  /* Evaluar opción y bloquear situaciones anómalas */
+  function evaluarOpcion(tipoElegido, botonElemento) {
+    if (respondido) return;
+    respondido = true;
+
+    const reaccion = REACCIONES[ordenPreguntas[indiceActual]];
+    const esCorrecto = (tipoElegido === reaccion.tipo);
+
+    // Deshabilitar todos los botones para evitar combinaciones imposibles o votos dobles
+    optButtons.forEach(btn => {
+      btn.disabled = true;
+      if (btn.dataset.type === reaccion.tipo) {
+        btn.classList.add('correct-choice');
+      }
+    });
+
+    btnReplay.classList.remove('hidden');
+    animarReagrupacion(reaccion);
+
+    feedbackBox.classList.remove('hidden');
+    if (esCorrecto) {
+      aciertosPorTipo[reaccion.tipo].aciertos++;
+      feedbackBox.className = 'feedback-panel success';
+      feedbackBox.innerHTML = `
+        <div><strong>&iexcl;Muy bien deducido!</strong> Es una reacción de <strong>${reaccion.nombreTipo}</strong>.</div>
+        <div><strong>Pista clave:</strong> ${reaccion.pista}</div>
+        <div style="font-size: 0.84rem; color: #0E5231;">Nivel simbólico: responde al esquema <em>${reaccion.esquema}</em>.</div>
+      `;
+    } else {
+      botonElemento.classList.add('wrong-choice');
+      feedbackBox.className = 'feedback-panel warning';
+      const motivoError = ERRORES_TIPO[tipoElegido] || 'La opción no corresponde con el patrón de esta reacción.';
+      feedbackBox.innerHTML = `
+        <div><strong>Respuesta incorrecta:</strong> Esta reacción es una <strong>${reaccion.nombreTipo}</strong>.</div>
+        <div><strong>¿Por qué no corresponde tu opción?</strong> ${motivoError}</div>
+        <div><strong>Pista para identificarla:</strong> ${reaccion.pista}</div>
+      `;
+    }
+
+    btnNext.disabled = false;
+    btnNext.focus();
+  }
+
+  /* Avanzar de ecuación */
+  function avanzar() {
+    if (!respondido) return;
+    indiceActual++;
+    if (indiceActual < REACCIONES.length) {
+      cargarReaccion(indiceActual);
+    } else {
+      mostrarResumenFinal();
+    }
+  }
+
+  /* Resumen final pedagógico */
+  function mostrarResumenFinal() {
+    gameSection.classList.add('hidden');
+    summarySection.classList.remove('hidden');
+
+    const nombres = {
+      sintesis: 'Síntesis',
+      descomposicion: 'Descomposición',
+      sust_simple: 'Sustitución Simple',
+      doble_sust: 'Doble Sustitución',
+      combustion: 'Combustión'
+    };
+
+    summaryMetrics.innerHTML = '';
+    Object.keys(aciertosPorTipo).forEach(k => {
+      const data = aciertosPorTipo[k];
+      const div = document.createElement('div');
+      div.className = 'summary-item';
+      div.innerHTML = `
+        <span class="cat-name">${nombres[k]}</span>
+        <span class="cat-score">${data.aciertos} / ${data.total}</span>
+        <span style="font-size: 0.76rem; color: var(--secondary);">aciertos</span>
+      `;
+      summaryMetrics.appendChild(div);
+    });
+    btnRestartFinal.focus();
+  }
+
+  /* Registro de eventos accesibles */
+  optButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      evaluarOpcion(btn.dataset.type, btn);
+    });
+  });
+
+  btnNext.addEventListener('click', avanzar);
+  btnRestart.addEventListener('click', iniciarTanda);
+  btnRestartFinal.addEventListener('click', iniciarTanda);
+  btnReplay.addEventListener('click', () => {
+    if (respondido && !animacionEnCurso) {
+      animarReagrupacion(REACCIONES[ordenPreguntas[indiceActual]]);
+    }
+  });
+
+  // Inicio automático
+  iniciarTanda();
+</script>
+
 </body>
 </html>

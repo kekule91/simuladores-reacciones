@@ -3,18 +3,639 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Equilibrio químico — cargando…</title>
+  <title>Simulador de Equilibrio Químico Dinámico</title>
+  <meta name="description" content="Simulador educativo de equilibrio químico dinámico para secundaria superior con los tres niveles de Johnstone y principio de Le Chatelier.">
+  <meta property="og:title" content="Simulador de Equilibrio Químico Dinámico">
+  <meta property="og:description" content="Simulador educativo de equilibrio químico dinámico para secundaria superior con los tres niveles de Johnstone y principio de Le Chatelier.">
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #16202B; }
-    code { background: #F1F5F9; padding: 0.1em 0.35em; border-radius: 4px; }
-    a { color: #1F5C8B; }
+    :root {
+      --bg: #F7FAFC;
+      --panel: #FFFFFF;
+      --border: #CFDAE4;
+      --text: #16202B;
+      --text-sec: #5A6B7B;
+      --color-a: #1F5C8B;
+      --color-b: #C05621;
+      --success-text: #1B7A4B;
+      --warning-text: #8A5A00;
+      --warning-bg: #FDF3E0;
+      --interactive: #1F5C8B;
+      --interactive-bg: #E8F1F8;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      overflow-x: hidden; width: 100%; background-color: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.45; font-size: 14px;
+    }
+    body { padding: 10px; }
+    @media (max-width: 480px) { body { padding: 6px; } }
+    .container { width: 100%; max-width: 1020px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+    header { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+    h1 { font-size: 1.2rem; color: var(--text); margin-bottom: 4px; font-weight: 700; line-height: 1.3; }
+    .consigna { color: var(--text-sec); font-size: 0.86rem; }
+    .johnstone-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 620px) { .johnstone-bar { grid-template-columns: 1fr; } }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+    .card-title {
+      font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--text-sec); font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;
+    }
+    .symbolic-display { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 62px; }
+    .chemical-equation {
+      font-size: 1.32rem; font-weight: 700; display: flex; align-items: center; gap: 8px;
+      font-family: 'Cambria Math', 'Times New Roman', serif;
+    }
+    .species-a { color: var(--color-a); }
+    .species-b { color: var(--color-b); }
+    .arrows-wrapper { display: flex; flex-direction: column; align-items: center; line-height: 0.65; min-width: 60px; }
+    .arrow-line { font-size: 1.15rem; transition: transform 0.25s ease; display: inline-block; color: var(--text); }
+    .rates-badge { font-size: 0.74rem; color: var(--text-sec); margin-top: 3px; font-family: ui-monospace, monospace; text-align: center; }
+    .macro-display { display: flex; align-items: center; gap: 12px; min-height: 62px; }
+    .macro-flask {
+      width: 44px; height: 54px; border: 3px solid #8FA3B5; border-radius: 4px 4px 12px 12px;
+      position: relative; background: #EDF2F7; display: flex; align-items: flex-end; overflow: hidden; flex-shrink: 0;
+    }
+    .macro-flask::before {
+      content: ''; position: absolute; top: -5px; left: 12px; width: 14px; height: 5px;
+      border: 2px solid #8FA3B5; border-bottom: none; background: #FFF;
+    }
+    .flask-liquid {
+      width: 100%; height: 75%; transition: background-color 0.35s ease;
+      display: flex; align-items: center; justify-content: center; font-size: 0.64rem; color: #FFF; font-weight: 700;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+    .macro-info { font-size: 0.82rem; color: var(--text-sec); }
+    .macro-info strong { color: var(--text); }
+    .sim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 760px) { .sim-grid { grid-template-columns: 1fr; } }
+    .canvas-container {
+      background: #FAFBFD; border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden; display: flex; flex-direction: column;
+    }
+    .canvas-header {
+      padding: 6px 10px; background: #FFFFFF; border-bottom: 1px solid var(--border);
+      font-size: 0.76rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center;
+    }
+    canvas { display: block; width: 100%; height: auto; aspect-ratio: 480 / 230; max-height: 230px; background: #FFFFFF; }
+    .controls-panel {
+      background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .control-group-title { font-size: 0.8rem; font-weight: 700; color: var(--text); }
+    .controls-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    button {
+      background: var(--interactive-bg); color: var(--interactive); border: 1px solid var(--interactive);
+      border-radius: 6px; padding: 6px 10px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 4px; min-height: 36px; transition: all 0.15s ease;
+      touch-action: manipulation;
+    }
+    button:hover:not(:disabled) { background: var(--interactive); color: #FFFFFF; }
+    button:focus-visible { outline: 2px solid var(--interactive); outline-offset: 2px; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; border-color: var(--border); background: #EDF2F7; color: var(--text-sec); }
+    button.btn-reset { background: #FFFFFF; border-color: #CBD5E0; color: var(--text-sec); margin-left: auto; }
+    @media (max-width: 540px) { button.btn-reset { margin-left: 0; width: 100%; justify-content: center; } }
+    button.btn-reset:hover { background: #FFF5F5; border-color: #FEB2B2; color: #C53030; }
+    .radio-pill-group { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #FFF; }
+    .radio-pill-group label {
+      padding: 5px 8px; font-size: 0.76rem; cursor: pointer; color: var(--text-sec); user-select: none;
+      display: flex; align-items: center; gap: 4px; border-right: 1px solid var(--border); transition: background 0.15s; min-height: 36px;
+    }
+    .radio-pill-group label:last-child { border-right: none; }
+    .radio-pill-group input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+    .radio-pill-group label:has(input:checked) { background: var(--interactive-bg); color: var(--interactive); font-weight: 700; }
+    .radio-pill-group label:has(input:focus-visible) { outline: 2px solid var(--interactive); }
+    .notice { padding: 8px 10px; border-radius: 6px; font-size: 0.82rem; display: flex; align-items: flex-start; gap: 8px; line-height: 1.45; }
+    .notice-info { background: var(--interactive-bg); color: var(--interactive); border: 1px solid #BEE3F8; }
+    .notice-warning { background: var(--warning-bg); color: var(--warning-text); border: 1px solid #FBD38D; }
+    .inquiry-panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+    .inquiry-title { font-size: 0.95rem; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .faq-list { display: flex; flex-direction: column; gap: 6px; }
+    details { border: 1px solid var(--border); border-radius: 6px; background: #FFFFFF; overflow: hidden; }
+    details[open] { border-color: var(--interactive); }
+    summary {
+      padding: 8px 10px; font-weight: 600; color: var(--text); cursor: pointer; user-select: none;
+      background: #FAFBFD; list-style: none; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "＋"; font-size: 1rem; color: var(--interactive); font-weight: bold; }
+    details[open] summary::after { content: "－"; }
+    summary:hover { background: var(--interactive-bg); }
+    summary:focus-visible { outline: 2px solid var(--interactive); outline-offset: -2px; }
+    .details-content { padding: 8px 12px; font-size: 0.83rem; color: var(--text); border-top: 1px solid var(--border); line-height: 1.5; }
+    .details-content strong { color: var(--interactive); }
   </style>
 </head>
 <body>
-  <h1>Equilibrio químico</h1>
-  <p>Este archivo es un marcador. El simulador completo offline se restaura desde <code>hex-parts/</code>:</p>
-  <pre>python3 restore_from_hex.py</pre>
-  <p>Demo en línea: <a href="https://simulador-de-equilibrio-qu-mico.ai.studio/">https://simulador-de-equilibrio-qu-mico.ai.studio/</a></p>
-  <p>Si ya corriste el restore, recargá esta página (debería haberse reemplazado este stub).</p>
+  <div class="container" id="app">
+    <header id="header-panel">
+      <h1>Equilibrio Químico: Dinámica y Principio de Le Chatelier</h1>
+      <p class="consigna">
+        Probá cómo interactúan reactivos y productos en una reacción reversible en fase gaseosa. Observá qué pasa con las velocidades al alcanzar el equilibrio y cómo responde ante distintas perturbaciones.
+      </p>
+    </header>
+
+    <div class="johnstone-bar">
+      <section class="card" aria-label="Nivel simbólico">
+        <div class="card-title">⚗️ Nivel Simbólico</div>
+        <div class="symbolic-display">
+          <div class="chemical-equation" aria-label="Reacción reversible A gas en equilibrio con B gas">
+            <span class="species-a">A<sub>(g)</sub></span>
+            <div class="arrows-wrapper" title="Grosor relativo de velocidades">
+              <span id="arrow-forward" class="arrow-line" aria-label="Velocidad directa">⇀</span>
+              <span id="arrow-reverse" class="arrow-line" aria-label="Velocidad inversa">↽</span>
+            </div>
+            <span class="species-b">B<sub>(g)</sub></span>
+          </div>
+          <div class="rates-badge" id="symbolic-rates-text">v(directa): 0.00 s⁻¹ | v(inversa): 0.00 s⁻¹</div>
+        </div>
+      </section>
+
+      <section class="card" aria-label="Nivel macroscópico">
+        <div class="card-title">🧪 Nivel Macroscópico (Observable)</div>
+        <div class="macro-display">
+          <div class="macro-flask" aria-hidden="true" title="Color observable de la mezcla">
+            <div class="flask-liquid" id="flask-appearance">Gas</div>
+          </div>
+          <div class="macro-info">
+            <div>Color observado: <strong id="macro-color-label">Azulado predominante</strong></div>
+            <div>Temperatura: <strong id="macro-temp-label">300 K (27 °C)</strong></div>
+            <div>Estado: <strong id="macro-state-label">Alcanzando el equilibrio...</strong></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="sim-grid">
+      <section class="canvas-container" aria-label="Nivel submicroscópico">
+        <div class="canvas-header">
+          <span>🔬 Submicro: Choques y Reacciones (Caja cerrada)</span>
+          <span id="counts-badge">A: 0 | B: 0 (Total: 0)</span>
+        </div>
+        <canvas id="submicroCanvas" width="480" height="230" aria-label="Partículas colisionando y transformándose"></canvas>
+      </section>
+
+      <section class="canvas-container" aria-label="Gráficos en tiempo real">
+        <div class="canvas-header">
+          <span>📈 Gráficos en Vivo: N vs t y v vs t</span>
+          <span>
+            <span style="color:var(--color-a)">■ A</span> &nbsp;
+            <span style="color:var(--color-b)">■ B</span> &nbsp;
+            <span style="color:var(--text-sec); font-size:0.72rem;">(v: punteadas)</span>
+          </span>
+        </div>
+        <canvas id="graphsCanvas" width="480" height="230" aria-label="Curvas de concentración y velocidad"></canvas>
+      </section>
+    </div>
+
+    <section class="controls-panel" id="controls-section" aria-label="Controles del simulador">
+      <div class="control-group-title">Perturbaciones del sistema (Modificá las variables):</div>
+      <div class="controls-row">
+        <button id="btnAddA" aria-label="Agregar 10 partículas de A">➕ Agregar 10 de A<sub>(g)</sub></button>
+        <button id="btnRemoveB" aria-label="Retirar 10 partículas de B">➖ Retirar 10 de B<sub>(g)</sub></button>
+
+        <div class="radio-pill-group" role="radiogroup" aria-label="Termoquímica">
+          <label title="Reacción directa exotérmica (libera calor)">
+            <input type="radio" name="reactionType" value="exo" checked> ΔH &lt; 0 (Exo)
+          </label>
+          <label title="Reacción directa endotérmica (absorbe calor)">
+            <input type="radio" name="reactionType" value="endo"> ΔH &gt; 0 (Endo)
+          </label>
+        </div>
+
+        <div class="radio-pill-group" role="radiogroup" aria-label="Temperatura del sistema">
+          <label title="220 Kelvin (Frío)"><input type="radio" name="systemTemp" value="220"> 220 K</label>
+          <label title="300 Kelvin (Ambiente)"><input type="radio" name="systemTemp" value="300" checked> 300 K</label>
+          <label title="420 Kelvin (Calor)"><input type="radio" name="systemTemp" value="420"> 420 K</label>
+        </div>
+
+        <button id="btnReset" class="btn-reset" aria-label="Reiniciar simulador">🔄 Reiniciar</button>
+      </div>
+
+      <div id="perturbation-notice" class="notice notice-info" role="status" aria-live="polite">
+        💡 <strong>Estado inicial:</strong> El sistema comenzó con reactivo A predominante. Mirá cómo se forma B hasta que las velocidades directa e inversa se igualan.
+      </div>
+    </section>
+
+    <section class="inquiry-panel" id="inquiry-section" aria-label="Preguntas de reflexión pedagógica">
+      <h2 class="inquiry-title">¿Qué observás? Preguntas para pensar manipulando</h2>
+      <div class="faq-list">
+        <details id="faq-1">
+          <summary>1. ¿Qué pasa con la velocidad directa y la inversa al llegar al equilibrio?</summary>
+          <div class="details-content">
+            Alcanzado el equilibrio químico, <strong>ambas velocidades se vuelven exactamente iguales (v<sub>directa</sub> = v<sub>inversa</sub>)</strong>. Fijate en el gráfico inferior cómo las curvas punteadas convergen sobre la misma línea. Por cada segundo se transforma en promedio el mismo número de partículas de A en B que de B en A.
+          </div>
+        </details>
+        <details id="faq-2">
+          <summary>2. ¿En el equilibrio siempre hay igual cantidad de A y de B?</summary>
+          <div class="details-content">
+            <strong>No, casi nunca son iguales.</strong> En el equilibrio químico se igualan las <em>velocidades de reacción</em>, no las cantidades de sustancia. Como las probabilidades intrínsecas de transformación de A y B son distintas (dependen de su energía de activación), las cantidades quedan estables en el tiempo pero en valores diferentes.
+          </div>
+        </details>
+        <details id="faq-3">
+          <summary>3. ¿Cómo sabés que la reacción NO se detuvo cuando el sistema está en equilibrio?</summary>
+          <div class="details-content">
+            Porque el equilibrio químico es <strong>dinámico</strong>, no estático. En la caja las partículas <strong>siguen colisionando y cambiando de color todo el tiempo</strong> en ambos sentidos. Macroscópicamente el color ya no cambia porque las transformaciones ocurren a igual velocidad neta en ambas direcciones, pero a nivel submicroscópico las reacciones nunca se frenan.
+          </div>
+        </details>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+      // 1. Constantes del modelo cinético y límites físicos (evitan estados imposibles)
+      const MAX_PARTICLES = 80;  // Capacidad máxima de gas en reactor para evitar condensación
+      const MIN_PARTICLES = 10;  // Mínimo de partículas para validez estadística
+      const RADIUS = 5.5;        // Radio en px de cada partícula de gas
+
+      const state = {
+        temp: 300,
+        deltaH: 'exo',
+        particles: [],
+        counts: { A: 0, B: 0 },
+        ratesHistory: [],
+        countsHistory: [],
+        lastRateTime: performance.now(),
+        instantRateDir: 0,
+        instantRateRev: 0,
+        inletTimer: 0,
+        outletTimer: 0
+      };
+
+      // Constantes cinéticas a distintas temperaturas: kDir != kRev para que en equilibrio [A] != [B]
+      function getKRates(temp, deltaH) {
+        let kDir = 0.040, kRev = 0.020;
+        if (deltaH === 'exo') {
+          if (temp > 300) { kDir = 0.048; kRev = 0.060; }
+          else if (temp < 300) { kDir = 0.036; kRev = 0.009; }
+        } else {
+          if (temp > 300) { kDir = 0.060; kRev = 0.030; }
+          else if (temp < 300) { kDir = 0.008; kRev = 0.032; }
+          else { kDir = 0.020; kRev = 0.040; }
+        }
+        return { kDir, kRev };
+      }
+
+      // 2. Elementos del DOM
+      const submicroCanvas = document.getElementById('submicroCanvas');
+      const submicroCtx = submicroCanvas.getContext('2d');
+      const graphsCanvas = document.getElementById('graphsCanvas');
+      const graphsCtx = graphsCanvas.getContext('2d');
+      const countsBadge = document.getElementById('counts-badge');
+      const arrowFwd = document.getElementById('arrow-forward');
+      const arrowRev = document.getElementById('arrow-reverse');
+      const ratesText = document.getElementById('symbolic-rates-text');
+      const flaskApp = document.getElementById('flask-appearance');
+      const macroColor = document.getElementById('macro-color-label');
+      const macroTemp = document.getElementById('macro-temp-label');
+      const macroState = document.getElementById('macro-state-label');
+      const noticeBox = document.getElementById('perturbation-notice');
+      const btnAddA = document.getElementById('btnAddA');
+      const btnRemoveB = document.getElementById('btnRemoveB');
+      const btnReset = document.getElementById('btnReset');
+
+      // 3. Inicialización del sistema con conservación estricta de átomos
+      function initSystem(numA = 40, numB = 8) {
+        state.particles = [];
+        state.countsHistory = [];
+        state.ratesHistory = [];
+        state.lastRateTime = performance.now();
+        const w = submicroCanvas.width, h = submicroCanvas.height;
+        const spd = Math.sqrt(state.temp / 300) * 1.5;
+
+        for (let i = 0; i < numA; i++) {
+          const a = Math.random() * Math.PI * 2, s = (0.7 + Math.random() * 0.8) * spd;
+          state.particles.push({
+            x: RADIUS + Math.random() * (w - 2 * RADIUS),
+            y: RADIUS + Math.random() * (h - 2 * RADIUS),
+            vx: Math.cos(a) * s, vy: Math.sin(a) * s, type: 'A', flash: 0
+          });
+        }
+        for (let i = 0; i < numB; i++) {
+          const a = Math.random() * Math.PI * 2, s = (0.7 + Math.random() * 0.8) * spd;
+          state.particles.push({
+            x: RADIUS + Math.random() * (w - 2 * RADIUS),
+            y: RADIUS + Math.random() * (h - 2 * RADIUS),
+            vx: Math.cos(a) * s, vy: Math.sin(a) * s, type: 'B', flash: 0
+          });
+        }
+        const { kDir, kRev } = getKRates(state.temp, state.deltaH);
+        state.instantRateDir = kDir * numA;
+        state.instantRateRev = kRev * numB;
+        updateCountsAndControls();
+      }
+
+      function updateCountsAndControls() {
+        let nA = 0, nB = 0;
+        for (let i = 0; i < state.particles.length; i++) {
+          if (state.particles[i].type === 'A') nA++; else nB++;
+        }
+        state.counts.A = nA; state.counts.B = nB;
+        const total = nA + nB;
+        if (countsBadge) countsBadge.textContent = `A: ${nA} | B: ${nB} (Total: ${total})`;
+
+        // Bloqueo de situaciones imposibles:
+        btnAddA.disabled = (total + 10 > MAX_PARTICLES);
+        btnRemoveB.disabled = (nB < 10 || (total - 10 < MIN_PARTICLES));
+      }
+
+      function setNotice(html, type = 'info') {
+        noticeBox.className = `notice notice-${type}`;
+        noticeBox.innerHTML = html;
+      }
+
+      // 4. Perturbaciones acotadas (Le Chatelier)
+      function addParticlesA() {
+        const currentTotal = state.particles.length;
+        if (currentTotal + 10 > MAX_PARTICLES) {
+          setNotice('⚠️ <strong>Límite alcanzado:</strong> El reactor alcanzó la densidad máxima sin condensación.', 'warning');
+          return;
+        }
+        const h = submicroCanvas.height, spd = Math.sqrt(state.temp / 300) * 1.5;
+        for (let i = 0; i < 10; i++) {
+          const a = (Math.random() - 0.5) * 1.1, s = (1.2 + Math.random() * 0.7) * spd;
+          state.particles.push({
+            x: RADIUS + 3 + Math.random() * 6,
+            y: h * 0.3 + Math.random() * (h * 0.4),
+            vx: Math.cos(a) * s, vy: Math.sin(a) * s, type: 'A', flash: 20
+          });
+        }
+        state.inletTimer = 25;
+        updateCountsAndControls();
+        setNotice(
+          '➕ <strong>Agregaste 10 de A<sub>(g)</sub>:</strong> Aumentó la concentración de reactivo y la velocidad directa dio un salto (v<sub>directa</sub> &gt; v<sub>inversa</sub>). Según Le Chatelier, el sistema consume A para formar más B (desplazamiento neto hacia la derecha ⇀).',
+          'info'
+        );
+      }
+
+      function removeParticlesB() {
+        const bIndices = [];
+        state.particles.forEach((p, idx) => { if (p.type === 'B') bIndices.push(idx); });
+        if (bIndices.length < 10 || (state.particles.length - 10 < MIN_PARTICLES)) {
+          setNotice('⚠️ <strong>No se puede retirar:</strong> No hay suficientes unidades de B para extraer.', 'warning');
+          return;
+        }
+        bIndices.sort((i1, i2) => state.particles[i2].x - state.particles[i1].x);
+        const setRemove = new Set(bIndices.slice(0, 10));
+        state.particles = state.particles.filter((_, idx) => !setRemove.has(idx));
+        state.outletTimer = 25;
+        updateCountsAndControls();
+        setNotice(
+          '➖ <strong>Retiraste 10 de B<sub>(g)</sub>:</strong> Al quitar producto, la velocidad inversa cayó abruptamente. El sistema reacciona favoreciendo la reacción directa (⇀) para reponer B hasta igualar nuevamente ambas velocidades.',
+          'info'
+        );
+      }
+
+      // 5. Dinámica física de partículas (choques elásticos y transformaciones)
+      let lastTime = performance.now();
+      function updateSimulation(dt) {
+        const w = submicroCanvas.width, h = submicroCanvas.height;
+        const { kDir, kRev } = getKRates(state.temp, state.deltaH);
+        const pDir = kDir * dt, pRev = kRev * dt;
+
+        for (let i = 0; i < state.particles.length; i++) {
+          const p = state.particles[i];
+          p.x += p.vx; p.y += p.vy;
+          if (p.flash > 0) p.flash--;
+          if (p.x <= RADIUS) { p.x = RADIUS; p.vx = Math.abs(p.vx); }
+          else if (p.x >= w - RADIUS) { p.x = w - RADIUS; p.vx = -Math.abs(p.vx); }
+          if (p.y <= RADIUS) { p.y = RADIUS; p.vy = Math.abs(p.vy); }
+          else if (p.y >= h - RADIUS) { p.y = h - RADIUS; p.vy = -Math.abs(p.vy); }
+
+          if (p.type === 'A' && Math.random() < pDir) { p.type = 'B'; p.flash = 16; }
+          else if (p.type === 'B' && Math.random() < pRev) { p.type = 'A'; p.flash = 16; }
+        }
+
+        const n = state.particles.length, minD = RADIUS * 2;
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            const p1 = state.particles[i], p2 = state.particles[j];
+            const dx = p2.x - p1.x, dy = p2.y - p1.y, dist = Math.hypot(dx, dy);
+            if (dist < minD && dist > 0.001) {
+              const over = (minD - dist) / 2, nx = dx / dist, ny = dy / dist;
+              p1.x -= nx * over; p1.y -= ny * over;
+              p2.x += nx * over; p2.y += ny * over;
+              const k = (p1.vx - p2.vx) * nx + (p1.vy - p2.vy) * ny;
+              p1.vx -= k * nx; p1.vy -= k * ny;
+              p2.vx += k * nx; p2.vy += k * ny;
+            }
+          }
+        }
+      }
+
+      // 6. Muestreo de datos y cálculo exacto de velocidades cinéticas
+      function sampleData(now) {
+        const elapsed = (now - state.lastRateTime) / 1000;
+        if (elapsed >= 0.4) {
+          state.lastRateTime = now;
+          updateCountsAndControls();
+          const { kDir, kRev } = getKRates(state.temp, state.deltaH);
+          const targetVDir = kDir * state.counts.A;
+          const targetVRev = kRev * state.counts.B;
+          state.instantRateDir = state.instantRateDir * 0.3 + targetVDir * 0.7;
+          state.instantRateRev = state.instantRateRev * 0.3 + targetVRev * 0.7;
+          state.countsHistory.push({ A: state.counts.A, B: state.counts.B });
+          state.ratesHistory.push({ vDir: state.instantRateDir, vRev: state.instantRateRev });
+          if (state.countsHistory.length > 70) {
+            state.countsHistory.shift();
+            state.ratesHistory.shift();
+          }
+          syncJohnstone();
+        }
+      }
+
+      // 7. Sincronización de Johnstone
+      function syncJohnstone() {
+        const vDir = state.instantRateDir, vRev = state.instantRateRev;
+        const nA = state.counts.A, nB = state.counts.B, tot = Math.max(1, nA + nB);
+
+        const maxR = Math.max(0.2, vDir, vRev);
+        const scaleDir = Math.min(1.8, Math.max(0.6, (vDir / maxR) * 1.3));
+        const scaleRev = Math.min(1.8, Math.max(0.6, (vRev / maxR) * 1.3));
+        arrowFwd.style.transform = `scaleX(${scaleDir.toFixed(2)})`;
+        arrowRev.style.transform = `scaleX(${scaleRev.toFixed(2)})`;
+        ratesText.textContent = `v(directa): ${vDir.toFixed(2)} s⁻¹ | v(inversa): ${vRev.toFixed(2)} s⁻¹`;
+
+        const fracB = nB / tot;
+        const r = Math.round(31 * (1 - fracB) + 192 * fracB);
+        const g = Math.round(92 * (1 - fracB) + 86 * fracB);
+        const b = Math.round(139 * (1 - fracB) + 33 * fracB);
+        flaskApp.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+
+        if (fracB < 0.35) macroColor.textContent = 'Azulado predominante (A)';
+        else if (fracB > 0.65) macroColor.textContent = 'Ámbar predominante (B)';
+        else macroColor.textContent = 'Tono mixto intermedio';
+
+        const diff = Math.abs(vDir - vRev);
+        if (diff < 0.12 && state.countsHistory.length > 5) {
+          macroState.textContent = 'En equilibrio dinámico (v_dir = v_inv)';
+          macroState.style.color = 'var(--success-text)';
+        } else if (vDir > vRev) {
+          macroState.textContent = 'Desplazándose hacia la derecha (⇀)';
+          macroState.style.color = 'var(--interactive)';
+        } else {
+          macroState.textContent = 'Desplazándose hacia la izquierda (↽)';
+          macroState.style.color = 'var(--color-b)';
+        }
+        macroTemp.textContent = `${state.temp} K (${state.temp - 273} °C)`;
+      }
+
+      // 8. Render Submicroscópico
+      function renderSubmicro() {
+        const ctx = submicroCtx, w = submicroCanvas.width, h = submicroCanvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.strokeStyle = '#EDF2F7'; ctx.lineWidth = 1;
+        for (let x = 40; x < w; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+        for (let y = 40; y < h; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+        if (state.inletTimer > 0) {
+          state.inletTimer--;
+          ctx.fillStyle = 'rgba(31, 92, 139, 0.28)';
+          ctx.fillRect(0, h * 0.3, 10, h * 0.4);
+        }
+        if (state.outletTimer > 0) {
+          state.outletTimer--;
+          ctx.fillStyle = 'rgba(192, 86, 33, 0.28)';
+          ctx.fillRect(w - 10, h * 0.3, 10, h * 0.4);
+        }
+
+        for (let i = 0; i < state.particles.length; i++) {
+          const p = state.particles[i];
+          if (p.flash > 0) {
+            ctx.beginPath(); ctx.arc(p.x, p.y, RADIUS + 4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(217, 119, 6, 0.45)'; ctx.fill();
+          }
+          ctx.beginPath(); ctx.arc(p.x, p.y, RADIUS, 0, Math.PI * 2);
+          ctx.fillStyle = (p.type === 'A') ? '#1F5C8B' : '#C05621'; ctx.fill();
+          ctx.beginPath(); ctx.arc(p.x - 1.5, p.y - 1.5, RADIUS * 0.35, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'; ctx.fill();
+        }
+      }
+
+      // 9. Render Gráficos en Vivo
+      function renderGraphs() {
+        const ctx = graphsCtx, w = graphsCanvas.width, h = graphsCanvas.height;
+        ctx.clearRect(0, 0, w, h);
+        const padL = 36, padR = 12, padT = 16, padB = 24;
+        const plotW = w - padL - padR, halfH = (h - padT - padB) / 2;
+
+        ctx.strokeStyle = '#E2E8F0'; ctx.lineWidth = 1; ctx.fillStyle = '#718096'; ctx.font = '10px sans-serif';
+        ctx.fillText('N Partículas', 4, padT + 10);
+        ctx.fillText(`${MAX_PARTICLES}`, padL - 22, padT + 10);
+        ctx.fillText('0', padL - 12, padT + halfH);
+        ctx.beginPath(); ctx.moveTo(padL, padT + halfH); ctx.lineTo(w - padR, padT + halfH); ctx.stroke();
+
+        const yRTop = padT + halfH + 10, rH = halfH - 10;
+        ctx.fillText('v (s⁻¹)', 6, yRTop + 10);
+        ctx.fillText('0', padL - 12, yRTop + rH);
+        ctx.beginPath(); ctx.moveTo(padL, yRTop + rH); ctx.lineTo(w - padR, yRTop + rH); ctx.stroke();
+
+        const hist = state.countsHistory, rHist = state.ratesHistory;
+        if (hist.length < 2) return;
+        const stepX = plotW / 69;
+
+        // Curva A
+        ctx.strokeStyle = '#1F5C8B'; ctx.lineWidth = 2; ctx.setLineDash([]);
+        ctx.beginPath();
+        for (let i = 0; i < hist.length; i++) {
+          const x = padL + i * stepX, y = padT + halfH - (hist[i].A / MAX_PARTICLES) * halfH;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // Curva B
+        ctx.strokeStyle = '#C05621'; ctx.beginPath();
+        for (let i = 0; i < hist.length; i++) {
+          const x = padL + i * stepX, y = padT + halfH - (hist[i].B / MAX_PARTICLES) * halfH;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // Curvas de Velocidad convergentes
+        const maxV = 3.6;
+        ctx.setLineDash([4, 3]);
+        ctx.strokeStyle = '#1F5C8B'; ctx.beginPath();
+        for (let i = 0; i < rHist.length; i++) {
+          const x = padL + i * stepX, y = yRTop + rH - (Math.min(maxV, rHist[i].vDir) / maxV) * rH;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        ctx.strokeStyle = '#C05621'; ctx.beginPath();
+        for (let i = 0; i < rHist.length; i++) {
+          const x = padL + i * stepX, y = yRTop + rH - (Math.min(maxV, rHist[i].vRev) / maxV) * rH;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // 10. Bucle de animación
+      function animate(now) {
+        const dt = Math.min(0.08, (now - lastTime) / 1000);
+        lastTime = now;
+        updateSimulation(dt);
+        sampleData(now);
+        renderSubmicro();
+        renderGraphs();
+        requestAnimationFrame(animate);
+      }
+
+      // 11. Eventos de interacción
+      btnAddA.addEventListener('click', addParticlesA);
+      btnRemoveB.addEventListener('click', removeParticlesB);
+      btnReset.addEventListener('click', function () {
+        initSystem(40, 8);
+        setNotice('🔄 <strong>Simulador restablecido:</strong> Comenzamos con 40 partículas de A<sub>(g)</sub> y 8 de B<sub>(g)</sub> a 300 K.', 'info');
+      });
+
+      document.querySelectorAll('input[name="systemTemp"]').forEach(radio => {
+        radio.addEventListener('change', function (e) {
+          state.temp = parseInt(e.target.value, 10);
+          const spdFactor = Math.sqrt(state.temp / 300);
+          state.particles.forEach(p => {
+            const curSpd = Math.hypot(p.vx, p.vy) || 1;
+            const targetSpd = (0.7 + Math.random() * 0.8) * spdFactor * 1.5;
+            p.vx = (p.vx / curSpd) * targetSpd;
+            p.vy = (p.vy / curSpd) * targetSpd;
+          });
+
+          let msg = '';
+          if (state.deltaH === 'exo') {
+            if (state.temp > 300) {
+              msg = `🔥 <strong>Subiste la temperatura (${state.temp} K) en reacción EXOTÉRMICA:</strong> Al liberar calor hacia la derecha (A ⇌ B + calor), calentar desplaza el equilibrio hacia los reactivos (↽) para absorber calor, aumentando A.`;
+            } else if (state.temp < 300) {
+              msg = `❄️ <strong>Bajaste la temperatura (${state.temp} K) en reacción EXOTÉRMICA:</strong> Al enfriar, el sistema libera calor desplazándose hacia los productos (⇀), aumentando B.`;
+            } else {
+              msg = `🌡️ <strong>Temperatura ambiente restablecida (300 K).</strong>`;
+            }
+          } else {
+            if (state.temp > 300) {
+              msg = `🔥 <strong>Subiste la temperatura (${state.temp} K) en reacción ENDOTÉRMICA:</strong> Como la reacción absorbe calor (A + calor ⇌ B), calentar desplaza el equilibrio hacia los productos (⇀), aumentando B.`;
+            } else if (state.temp < 300) {
+              msg = `❄️ <strong>Bajaste la temperatura (${state.temp} K) en reacción ENDOTÉRMICA:</strong> Al enfriar, el equilibrio se desplaza hacia los reactivos (↽), regenerando A.`;
+            } else {
+              msg = `🌡️ <strong>Temperatura ambiente restablecida (300 K).</strong>`;
+            }
+          }
+          setNotice(msg, 'info');
+        });
+      });
+
+      document.querySelectorAll('input[name="reactionType"]').forEach(radio => {
+        radio.addEventListener('change', function (e) {
+          state.deltaH = e.target.value;
+          const desc = (state.deltaH === 'exo') ? 'Exotérmica (ΔH < 0, libera calor)' : 'Endotérmica (ΔH > 0, absorbe calor)';
+          setNotice(`⚗️ <strong>Cambiado a reacción ${desc}:</strong> Mové la temperatura para ver cómo responde el sistema según Le Chatelier.`, 'info');
+        });
+      });
+
+      initSystem(40, 8);
+      requestAnimationFrame(animate);
+    })();
+  </script>
 </body>
 </html>

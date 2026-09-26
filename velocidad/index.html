@@ -3,18 +3,695 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Velocidad de reacción — cargando…</title>
+  <title>Simulador: Velocidad de Reacción Química</title>
+  <meta name="description" content="Simulador interactivo de cinética química y teoría de colisiones en los tres niveles de Johnstone.">
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #16202B; }
-    code { background: #F1F5F9; padding: 0.1em 0.35em; border-radius: 4px; }
-    a { color: #1F5C8B; }
+    :root {
+      --bg: #F7FAFC; --panel: #FFFFFF; --border: #CFDAE4; --text: #16202B; --sec: #5A6B7B;
+      --ok-txt: #1B7A4B; --ok-bg: #E6F4EC; --warn-txt: #8A5A00; --warn-bg: #FDF3E0;
+      --int: #1F5C8B; --int-h: #16466B; --int-bg: #E8F1F8;
+      --part-a: #2563EB; --part-b: #D97706; --cat: #7C3AED;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text);
+      line-height: 1.45; font-size: 14px; padding: 10px; display: flex; justify-content: center;
+    }
+    .app { width: 100%; max-width: 980px; display: flex; flex-direction: column; gap: 10px; }
+    header { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+    h1 { font-size: 1.28rem; font-weight: 700; color: var(--text); }
+    .consigna { font-size: 0.88rem; color: var(--sec); margin: 3px 0 8px; }
+    .simbolico {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      background: var(--int-bg); border: 1px solid #B8D3E8; border-radius: 6px; padding: 7px 10px; gap: 6px; font-size: 0.85rem;
+    }
+    .ecuacion { font-size: 1.1rem; font-weight: 700; color: var(--int); }
+    .leyenda { display: flex; gap: 8px; flex-wrap: wrap; font-size: 0.8rem; color: var(--sec); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; vertical-align: middle; }
+    .dot-a { background: var(--part-a); } .dot-b { background: var(--part-b); }
+    .dot-ab { background: linear-gradient(135deg, var(--part-a) 50%, var(--part-b) 50%); }
+
+    /* Layout principal de simulación */
+    .grid-sim { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    @media (min-width: 780px) { .grid-sim { grid-template-columns: 1.25fr 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .panel-head { display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; font-weight: 700; }
+    .tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 999px; text-transform: uppercase; font-weight: 600; }
+    .tag-sub { background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; }
+    .tag-mac { background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
+    .tag-grp { background: var(--int-bg); color: var(--int); border: 1px solid #B8D3E8; }
+    .cv-box { width: 100%; background: #FAFBFD; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; position: relative; }
+    canvas { display: block; width: 100%; height: auto; }
+
+    /* Métricas responsivas (2 col a 360px, 4 col en pantallas mayores) */
+    .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    @media (min-width: 480px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+    .stat { border: 1px solid var(--border); border-radius: 6px; padding: 6px 4px; text-align: center; background: #FAFCFE; }
+    .stat.ok { background: var(--ok-bg); border-color: #A3D7BD; }
+    .stat-lbl { font-size: 0.72rem; color: var(--sec); font-weight: 600; display: block; line-height: 1.2; }
+    .stat-val { font-size: 1.12rem; font-weight: 800; margin-top: 2px; }
+    .stat.ok .stat-val { color: var(--ok-txt); }
+
+    /* Controles experimentales */
+    .ctrl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+    .ctrl-group { display: flex; flex-direction: column; gap: 3px; }
+    .ctrl-head { display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; }
+    .ctrl-sub { font-size: 0.74rem; color: var(--sec); font-weight: normal; }
+    .btn-row { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .btn-row button {
+      flex: 1; padding: 6px 3px; font-size: 0.78rem; font-weight: 600; border: none;
+      background: transparent; color: var(--sec); cursor: pointer; transition: 0.12s; white-space: nowrap;
+    }
+    .btn-row button:not(:last-child) { border-right: 1px solid var(--border); }
+    .btn-row button:hover { background: #EEF3F8; color: var(--text); }
+    .btn-row button.active { background: var(--int); color: #fff; }
+    .btn-row button:focus-visible, .btn:focus-visible, summary:focus-visible { outline: 2px solid var(--int); }
+    .btn-cat {
+      display: flex; justify-content: space-between; align-items: center; padding: 6px 8px;
+      border: 1px solid var(--border); border-radius: 6px; background: #FAFCFE; font-size: 0.8rem; font-weight: 600; cursor: pointer; color: var(--text);
+    }
+    .btn-cat.active { background: #F5F0FD; border-color: #D8B4FE; color: var(--cat); }
+    .actions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
+    .btn {
+      padding: 6px 10px; font-size: 0.8rem; font-weight: 600; border-radius: 6px;
+      border: 1px solid transparent; cursor: pointer; transition: 0.12s; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .btn-p { background: var(--int); color: #fff; } .btn-p:hover { background: var(--int-h); }
+    .btn-s { background: #fff; color: var(--text); border-color: var(--border); } .btn-s:hover { background: #F1F5F9; }
+    .btn-d { background: #fff; color: #991B1B; border-color: #F87171; } .btn-d:hover { background: #FEF2F2; }
+
+    /* Avisos didácticos */
+    .nota-quimica { font-size: 0.75rem; color: var(--sec); background: #F8FAFC; border-left: 3px solid var(--int); padding: 5px 8px; border-radius: 0 6px 6px 0; }
+    .estado-reaccion { font-size: 0.76rem; font-weight: 600; padding: 4px 8px; border-radius: 4px; display: none; }
+    .estado-fin { display: block; background: var(--warn-bg); color: var(--warn-txt); border: 1px solid #FCD34D; }
+
+    /* Preguntas para reflexionar */
+    details { border: 1px solid var(--border); border-radius: 6px; background: #FAFCFE; }
+    summary { padding: 7px 10px; font-weight: 600; font-size: 0.84rem; cursor: pointer; user-select: none; color: var(--text); transition: background 0.12s; }
+    summary:hover { background: var(--int-bg); color: var(--int); }
+    details[open] summary { background: var(--int-bg); color: var(--int); border-bottom: 1px solid var(--border); }
+    .resp { padding: 8px 10px; font-size: 0.82rem; line-height: 1.45; background: #fff; }
+    .resp strong { color: var(--int); }
   </style>
 </head>
 <body>
-  <h1>Velocidad de reacción</h1>
-  <p>Este archivo es un marcador. El simulador completo offline se restaura desde <code>hex-parts/</code>:</p>
-  <pre>python3 restore_from_hex.py</pre>
-  <p>Demo en línea: <a href="https://simulador-de-velocidad-de-reacci-n.ai.studio/">https://simulador-de-velocidad-de-reacci-n.ai.studio/</a></p>
-  <p>Si ya corriste el restore, recargá esta página (debería haberse reemplazado este stub).</p>
+  <main class="app">
+    <!-- 1. NIVEL SIMBÓLICO Y ENCABEZADO -->
+    <header>
+      <h1>Velocidad de reacción química</h1>
+      <p class="consigna">
+        Probá variar un solo factor por vez (temperatura, concentración, superficie de contacto o catalizador) y observá en tiempo real cómo cambia la velocidad de reacción en los tres niveles de Johnstone.
+      </p>
+      <section class="simbolico" aria-label="Nivel Simbólico">
+        <div>
+          <span style="font-size:0.7rem; font-weight:700; color:var(--sec); text-transform:uppercase;">Nivel Simbólico:</span>
+          <span class="ecuacion">A<sub>(ac)</sub> + B<sub>(s)</sub> &rarr; AB<sub>(g)</sub> &uarr;</span>
+        </div>
+        <div class="leyenda">
+          <span><span class="dot dot-a"></span> A (solución acuosa)</span>
+          <span><span class="dot dot-b"></span> B (sólido)</span>
+          <span><span class="dot dot-ab"></span> AB (gas desprendido)</span>
+        </div>
+      </section>
+    </header>
+
+    <!-- 2. SIMULACIÓN: TRES NIVELES Y GRÁFICO EN VIVO -->
+    <div class="grid-sim">
+      <!-- Nivel Submicroscópico -->
+      <section class="panel" aria-label="Nivel Submicroscópico">
+        <div class="panel-head">
+          <span>Cámara de colisiones de partículas</span>
+          <span class="tag tag-sub">Submicroscópico</span>
+        </div>
+        <div class="cv-box">
+          <canvas id="cv-sub" width="460" height="300" aria-label="Caja 2D con choques entre partículas de A y átomos de B"></canvas>
+        </div>
+        <!-- Métricas de cinética -->
+        <div class="stats" role="region" aria-live="polite">
+          <div class="stat"><span class="stat-lbl">Choques totales</span><span class="stat-val" id="val-tot">0</span></div>
+          <div class="stat ok"><span class="stat-lbl">Choques efectivos</span><span class="stat-val" id="val-efe">0</span></div>
+          <div class="stat"><span class="stat-lbl">% Efectividad</span><span class="stat-val" id="val-pct">0%</span></div>
+          <div class="stat"><span class="stat-lbl">AB<sub>(g)</sub> formados</span><span class="stat-val" id="val-ab">0</span></div>
+        </div>
+        <div id="box-fin" class="estado-reaccion estado-fin" role="alert">
+          &bull; Reacción completada: Se agotó el reactivo limitante. La velocidad de reacción es 0.
+        </div>
+        <div class="nota-quimica">
+          <strong>Conservación de la materia:</strong> Se conservan los átomos. Cada unidad de producto AB contiene exactamente 1 átomo de A y 1 átomo de B. Solo forman producto los choques con energía cinética suficiente contra la superficie expuesta de B (destello dorado).
+        </div>
+      </section>
+
+      <!-- Niveles Macroscópico y Gráfico -->
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <!-- Nivel Macroscópico -->
+        <section class="panel" aria-label="Nivel Macroscópico">
+          <div class="panel-head">
+            <span>Tubo de ensayo (experimento observable)</span>
+            <span class="tag tag-mac">Macroscópico</span>
+          </div>
+          <div class="cv-box">
+            <canvas id="cv-mac" width="380" height="135" aria-label="Tubo con reactivo sólido y burbujeo observable de gas"></canvas>
+          </div>
+        </section>
+
+        <!-- Gráfico en vivo -->
+        <section class="panel" aria-label="Gráfico en vivo">
+          <div class="panel-head">
+            <span>Cantidad de AB formado vs. Tiempo</span>
+            <span class="tag tag-grp">Gráfico en Vivo</span>
+          </div>
+          <div class="cv-box">
+            <canvas id="cv-grp" width="380" height="145" aria-label="Curva de cantidad de AB en función del tiempo"></canvas>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:0.73rem; color:var(--sec);">
+            <span><strong style="color:var(--int);">&mdash;</strong> Corrida actual</span>
+            <span id="leg-saved" style="display:none;"><strong style="color:#7C8B9E;">- - -</strong> Corrida guardada</span>
+            <span>Pendiente = Velocidad</span>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- 3. PANEL DE CONTROLES EXPERIMENTALES -->
+    <section class="panel" aria-label="Controles experimentales">
+      <div class="panel-head">
+        <h2>Controles del experimento</h2>
+        <span style="font-size:0.74rem; color:var(--sec); font-weight:normal;">Modificá una variable por ensayo</span>
+      </div>
+      <div class="ctrl-grid">
+        <!-- Temperatura -->
+        <div class="ctrl-group">
+          <div class="ctrl-head"><span>Temperatura (T)</span><span class="ctrl-sub" id="lbl-t">298 K (25 °C)</span></div>
+          <div class="btn-row" role="group" aria-label="Temperatura">
+            <button type="button" id="bt-t1" data-t="280">Baja (280 K)</button>
+            <button type="button" id="bt-t2" data-t="298" class="active">Media (298 K)</button>
+            <button type="button" id="bt-t3" data-t="330">Alta (330 K)</button>
+          </div>
+        </div>
+        <!-- Concentración -->
+        <div class="ctrl-group">
+          <div class="ctrl-head"><span>Concentración de A<sub>(ac)</sub></span><span class="ctrl-sub" id="lbl-c">Media (30 part.)</span></div>
+          <div class="btn-row" role="group" aria-label="Concentración de reactivo A">
+            <button type="button" id="bt-c1" data-c="15">Baja (15)</button>
+            <button type="button" id="bt-c2" data-c="30" class="active">Media (30)</button>
+            <button type="button" id="bt-c3" data-c="45">Alta (45)</button>
+          </div>
+        </div>
+        <!-- Superficie del sólido B -->
+        <div class="ctrl-group">
+          <div class="ctrl-head"><span>Superficie de B<sub>(s)</sub></span><span class="ctrl-sub" id="lbl-s">Trozos</span></div>
+          <div class="btn-row" role="group" aria-label="Superficie de contacto del sólido B">
+            <button type="button" id="bt-s1" data-s="entero">Entero</button>
+            <button type="button" id="bt-s2" data-s="trozos" class="active">Trozos</button>
+            <button type="button" id="bt-s3" data-s="polvo">Polvo</button>
+          </div>
+        </div>
+        <!-- Catalizador -->
+        <div class="ctrl-group">
+          <div class="ctrl-head"><span>Catalizador</span><span class="ctrl-sub" id="lbl-cat">Sin catalizador</span></div>
+          <button type="button" id="bt-cat" class="btn-cat" aria-pressed="false">
+            <span>Presencia de catalizador</span><span id="st-cat" style="font-weight:700;">Inactivo</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Botones de acción -->
+      <div class="actions">
+        <div style="display:flex; gap:6px;">
+          <button type="button" id="bt-play" class="btn btn-p" aria-label="Pausar o reanudar">
+            <span id="ic-play">&#10074;&#10074;</span> <span id="tx-play">Pausar</span>
+          </button>
+          <button type="button" id="bt-reset" class="btn btn-s" aria-label="Reiniciar corrida actual">&#8634; Reiniciar</button>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button type="button" id="bt-save" class="btn btn-s" aria-label="Guardar corrida para comparar">&#128203; Guardar para comparar</button>
+          <button type="button" id="bt-clear" class="btn btn-d" style="display:none;" aria-label="Borrar corrida guardada">&#10005; Borrar comparación</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. PANEL "¿QUÉ OBSERVÁS?" -->
+    <section class="panel" aria-label="Preguntas para reflexionar">
+      <div class="panel-head"><h2>&iquest;Qu&eacute; observ&aacute;s?</h2></div>
+      <p style="font-size:0.82rem; color:var(--sec);">
+        Manipul&aacute; las variables del simulador y hac&eacute; clic en cada pregunta para comprobar tu razonamiento:
+      </p>
+      <details>
+        <summary>1. &iquest;Qu&eacute; diferencia hay entre choques totales y choques efectivos?</summary>
+        <div class="resp">
+          Seg&uacute;n la <strong>Teor&iacute;a de las Colisiones</strong>, para que un choque produzca reacci&oacute;n debe ser <strong>efectivo</strong>: las part&iacute;culas deben colisionar con la orientaci&oacute;n correcta y una energ&iacute;a cin&eacute;tica igual o mayor a la <strong>Energ&iacute;a de Activaci&oacute;n (E<sub>a</sub>)</strong>. Los choques con energ&iacute;a insuficiente s&oacute;lo rebotan de forma el&aacute;stica conservando su composici&oacute;n. Por eso, el n&uacute;mero de choques totales siempre supera ampliamente al de choques efectivos. En el simulador, s&oacute;lo los choques efectivos muestran un destello dorado y forman producto AB.
+        </div>
+      </details>
+      <details>
+        <summary>2. &iquest;Qu&eacute; pasa con la pendiente del gr&aacute;fico al subir la temperatura con todo lo dem&aacute;s fijo?</summary>
+        <div class="resp">
+          Al subir la temperatura (ej. de 280 K a 330 K), la <strong>pendiente inicial de la curva se hace mucho m&aacute;s pronunciada</strong>. La pendiente representa la <em>velocidad de reacci&oacute;n</em> (&Delta;[AB] / &Delta;t). A mayor temperatura, las part&iacute;culas adquieren mayor velocidad y una fracci&oacute;n significativamente mayor supera la barrera de activaci&oacute;n (E<sub>a</sub>). Por lo tanto, se producen muchos m&aacute;s choques efectivos por segundo y la cantidad de producto AB se acumula mucho m&aacute;s r&aacute;pido.
+        </div>
+      </details>
+      <details>
+        <summary>3. &iquest;Por qu&eacute; en un experimento conviene cambiar un solo factor por vez?</summary>
+        <div class="resp">
+          Este principio fundamental se llama <strong>control de variables</strong>. Si modific&aacute;s dos factores simult&aacute;neamente (por ejemplo, aument&aacute;s la temperatura y pas&aacute;s el s&oacute;lido a polvo), la reacci&oacute;n va a acelerarse, pero <strong>no vas a poder distinguir con precisi&oacute;n cu&aacute;nto influy&oacute; la temperatura y cu&aacute;nto influy&oacute; la mayor superficie de contacto</strong>. Mantener constantes todos los factores salvo uno permite aislar la relaci&oacute;n de causa y efecto.
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <!-- ==========================================================
+       LÓGICA EN JAVASCRIPT VANILLA (AUTOCONTENIDO Y COMENTADO)
+       ========================================================== -->
+  <script>
+    (function () {
+      "use strict";
+
+      // 1. Elementos del DOM
+      const cvSub = document.getElementById("cv-sub"), ctxSub = cvSub.getContext("2d");
+      const cvMac = document.getElementById("cv-mac"), ctxMac = cvMac.getContext("2d");
+      const cvGrp = document.getElementById("cv-grp"), ctxGrp = cvGrp.getContext("2d");
+      const valTot = document.getElementById("val-tot"), valEfe = document.getElementById("val-efe");
+      const valPct = document.getElementById("val-pct"), valAb = document.getElementById("val-ab");
+      const lblT = document.getElementById("lbl-t"), lblC = document.getElementById("lbl-c"), lblS = document.getElementById("lbl-s");
+      const lblCat = document.getElementById("lbl-cat"), stCat = document.getElementById("st-cat"), btCat = document.getElementById("bt-cat");
+      const btPlay = document.getElementById("bt-play"), icPlay = document.getElementById("ic-play"), txPlay = document.getElementById("tx-play");
+      const btReset = document.getElementById("bt-reset"), btSave = document.getElementById("bt-save"), btClear = document.getElementById("bt-clear");
+      const legSaved = document.getElementById("leg-saved"), boxFin = document.getElementById("box-fin");
+
+      // 2. Estado de la simulación
+      let isRunning = true, lastTime = performance.now(), simTime = 0;
+      let temp = 298, concA = 30, surfaceState = "trozos", hasCatalyst = false;
+      let totalCollisions = 0, effectiveCollisions = 0, abCount = 0;
+      let currentGraph = [{ t: 0, ab: 0 }], savedGraph = null, lastGraphT = 0;
+      let recentEffectiveTimer = 0, isFinished = false;
+
+      let particlesA = [], particlesB = [], moleculesAB = [], flashes = [], bubbles = [];
+      const W_SUB = cvSub.width, H_SUB = cvSub.height, W_MAC = cvMac.width, H_MAC = cvMac.height, W_GRP = cvGrp.width, H_GRP = cvGrp.height;
+      const RAD_A = 6.5, RAD_B = 7.5, MAX_B = 24;
+
+      // Inicializa partículas de A en solución según la concentración seleccionada
+      function initParticlesA(count) {
+        particlesA = [];
+        const speedBase = Math.sqrt(temp / 298) * 1.8;
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2, spd = speedBase * (0.8 + Math.random() * 0.4);
+          particlesA.push({
+            x: RAD_A + Math.random() * (W_SUB - RAD_A * 2),
+            y: RAD_A + Math.random() * (H_SUB * 0.65),
+            vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd, r: RAD_A
+          });
+        }
+      }
+
+      // Inicializa átomos del reactivo B sólido según el estado de división
+      function initParticlesB() {
+        particlesB = [];
+        const yBase = H_SUB - 26, spacing = RAD_B * 2.1;
+        if (surfaceState === "entero") {
+          const cols = 6, rows = 4, startX = (W_SUB - cols * spacing) / 2 + RAD_B, startY = yBase - rows * spacing + RAD_B;
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              particlesB.push({ x: startX + c * spacing, y: startY + r * spacing, active: true, exposed: (r === 0 || c === 0 || c === cols - 1), cluster: 0, rIdx: r, cIdx: c });
+            }
+          }
+        } else if (surfaceState === "trozos") {
+          const clusters = 3, cols = 4, rows = 2, cW = cols * spacing, gap = (W_SUB - clusters * cW) / (clusters + 1);
+          for (let k = 0; k < clusters; k++) {
+            const startX = gap + k * (cW + gap) + RAD_B, startY = yBase - rows * spacing + RAD_B;
+            for (let r = 0; r < rows; r++) {
+              for (let c = 0; c < cols; c++) {
+                particlesB.push({ x: startX + c * spacing, y: startY + r * spacing, active: true, exposed: (r === 0 || c === 0 || c === cols - 1), cluster: k, rIdx: r, cIdx: c });
+              }
+            }
+          }
+        } else if (surfaceState === "polvo") {
+          const cols = 12, rows = 2, stepX = (W_SUB - 50) / cols;
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              particlesB.push({ x: 25 + c * stepX + (Math.random() - 0.5) * 6, y: yBase - r * (RAD_B * 2.5) + (Math.random() - 0.5) * 6, active: true, exposed: true, cluster: c, rIdx: r, cIdx: c });
+            }
+          }
+        }
+      }
+
+      // Reinicia simulación manteniendo o limpiando la corrida guardada
+      function resetSimulation(keepSaved = true) {
+        simTime = 0; lastGraphT = 0; totalCollisions = 0; effectiveCollisions = 0; abCount = 0;
+        recentEffectiveTimer = 0; isFinished = false; boxFin.style.display = "none";
+        moleculesAB = []; flashes = []; bubbles = []; currentGraph = [{ t: 0, ab: 0 }];
+        if (!keepSaved) { savedGraph = null; legSaved.style.display = "none"; btClear.style.display = "none"; }
+        initParticlesA(concA); initParticlesB(); updateStats();
+      }
+
+      function updateStats() {
+        valTot.textContent = totalCollisions; valEfe.textContent = effectiveCollisions;
+        valPct.textContent = totalCollisions > 0 ? ((effectiveCollisions / totalCollisions) * 100).toFixed(1) + "%" : "0%";
+        valAb.textContent = abCount;
+      }
+
+      // Actualización física de la simulación
+      function updatePhysics(dt) {
+        simTime += dt;
+        recentEffectiveTimer = Math.max(0, recentEffectiveTimer - dt);
+
+        if (simTime - lastGraphT >= 0.5) {
+          lastGraphT = simTime;
+          currentGraph.push({ t: simTime, ab: abCount });
+        }
+
+        // Verificación de reactivo limitante agotado (química estricta)
+        const activeBCount = particlesB.filter(b => b.active).length;
+        if ((particlesA.length === 0 || activeBCount === 0) && !isFinished) {
+          isFinished = true;
+          boxFin.style.display = "block";
+          const limitante = particlesA.length === 0 ? "reactivo A(ac)" : "reactivo B(s)";
+          boxFin.innerHTML = `&bull; Reacci&oacute;n completada: Se agot&oacute; el <strong>${limitante}</strong> (reactivo limitante). La velocidad instant&aacute;nea es 0.`;
+        }
+
+        // Energía de activación: el catalizador ofrece un camino alternativo con menor Ea
+        const Ea = hasCatalyst ? 1.25 : 2.5;
+
+        // Movimiento y rebotes de partículas A contra las paredes
+        for (let i = 0; i < particlesA.length; i++) {
+          const p = particlesA[i]; p.x += p.vx; p.y += p.vy;
+          if (p.x - p.r <= 0) { p.x = p.r; p.vx *= -1; } else if (p.x + p.r >= W_SUB) { p.x = W_SUB - p.r; p.vx *= -1; }
+          if (p.y - p.r <= 0) { p.y = p.r; p.vy *= -1; } else if (p.y + p.r >= H_SUB) { p.y = H_SUB - p.r; p.vy *= -1; }
+        }
+
+        // Colisiones entre partículas A y el sólido B (si aún quedan reactivos)
+        if (!isFinished) {
+          for (let i = particlesA.length - 1; i >= 0; i--) {
+            const a = particlesA[i];
+            for (let j = 0; j < particlesB.length; j++) {
+              const b = particlesB[j];
+              if (!b.active) continue;
+              const dx = a.x - b.x, dy = a.y - b.y, dist = Math.hypot(dx, dy), minDist = a.r + RAD_B;
+              if (dist < minDist) {
+                totalCollisions++;
+                // Choque ineficaz si el átomo de B está dentro de la red sólida (no expuesto)
+                if (!b.exposed) {
+                  const nx = dx / (dist || 1), ny = dy / (dist || 1), dot = a.vx * nx + a.vy * ny;
+                  a.vx -= 2 * dot * nx; a.vy -= 2 * dot * ny; a.x = b.x + nx * minDist; a.y = b.y + ny * minDist;
+                  continue;
+                }
+                // Evaluación cinética de la colisión según Maxwell-Boltzmann / temperatura
+                const speedSq = a.vx * a.vx + a.vy * a.vy;
+                const collisionEnergy = speedSq * (0.8 + Math.random() * 0.4) * ((temp - 260) / 70);
+
+                if (collisionEnergy >= Ea) {
+                  // Choque eficaz: se consumen exactamente 1 átomo de A y 1 de B
+                  effectiveCollisions++; abCount++; recentEffectiveTimer = 1.2;
+                  flashes.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, r: 4, alpha: 1 });
+                  b.active = false;
+                  // Si no es polvo, exponer átomo interior adyacente
+                  if (surfaceState !== "polvo") {
+                    const sub = particlesB.find(p => p.active && !p.exposed && p.cluster === b.cluster && p.cIdx === b.cIdx && p.rIdx === b.rIdx + 1);
+                    if (sub) sub.exposed = true;
+                  }
+                  // Unidad de gas AB desprendida
+                  moleculesAB.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, vx: (Math.random() - 0.5) * 0.7, vy: -1.3 - Math.random() * 0.7, alpha: 1 });
+                  // Burbuja visible en el nivel macroscópico
+                  bubbles.push({ x: W_MAC * 0.46 + (Math.random() - 0.5) * 18, y: H_MAC - 24, r: 2.2 + Math.random() * 2.2, vy: 1.1 + Math.random() * 1.1 });
+                  particlesA.splice(i, 1);
+                  break;
+                } else {
+                  // Choque ineficaz: rebote elástico conservando identidades químicas
+                  const nx = dx / (dist || 1), ny = dy / (dist || 1), dot = a.vx * nx + a.vy * ny;
+                  a.vx -= 2 * dot * nx; a.vy -= 2 * dot * ny; a.x = b.x + nx * minDist; a.y = b.y + ny * minDist;
+                }
+              }
+            }
+          }
+        }
+
+        // Escape de producto gaseoso AB
+        for (let m = moleculesAB.length - 1; m >= 0; m--) {
+          const mol = moleculesAB[m]; mol.x += mol.vx; mol.y += mol.vy;
+          if (mol.y < 16) { mol.alpha -= 0.04; if (mol.alpha <= 0) moleculesAB.splice(m, 1); }
+        }
+        for (let f = flashes.length - 1; f >= 0; f--) {
+          flashes[f].r += 1.5; flashes[f].alpha -= 0.08; if (flashes[f].alpha <= 0) flashes.splice(f, 1);
+        }
+        for (let b = bubbles.length - 1; b >= 0; b--) {
+          bubbles[b].y -= bubbles[b].vy; if (bubbles[b].y <= 36) bubbles.splice(b, 1);
+        }
+        updateStats();
+      }
+
+      // Renderizado: Nivel Submicroscópico
+      function renderSubmicro() {
+        ctxSub.clearRect(0, 0, W_SUB, H_SUB);
+        ctxSub.fillStyle = "#FAFBFD"; ctxSub.fillRect(0, 0, W_SUB, H_SUB);
+        ctxSub.fillStyle = "rgba(220, 235, 252, 0.45)"; ctxSub.fillRect(0, 0, W_SUB, 26);
+        ctxSub.fillStyle = "#5A6B7B"; ctxSub.font = "11px system-ui"; ctxSub.fillText("Zona de escape de gas AB(g) ↑", 8, 17);
+
+        if (hasCatalyst) {
+          ctxSub.fillStyle = "rgba(124, 58, 237, 0.07)"; ctxSub.fillRect(0, 26, W_SUB, H_SUB - 26);
+          ctxSub.fillStyle = "#7C3AED"; ctxSub.font = "bold 11px system-ui";
+          ctxSub.fillText("✦ Catalizador activo: Disminuye la Energía de Activación (Ea)", 8, 44);
+        }
+
+        // Átomos de B
+        particlesB.forEach(b => {
+          if (!b.active) return;
+          ctxSub.beginPath(); ctxSub.arc(b.x, b.y, RAD_B, 0, Math.PI * 2);
+          ctxSub.fillStyle = b.exposed ? "#D97706" : "#92400E"; ctxSub.fill();
+          ctxSub.strokeStyle = b.exposed ? "#B45309" : "#78350F"; ctxSub.stroke();
+          ctxSub.fillStyle = "#fff"; ctxSub.font = "bold 9px system-ui"; ctxSub.textAlign = "center"; ctxSub.textBaseline = "middle";
+          ctxSub.fillText("B", b.x, b.y);
+        });
+
+        // Partículas de A
+        particlesA.forEach(a => {
+          ctxSub.beginPath(); ctxSub.arc(a.x, a.y, a.r, 0, Math.PI * 2);
+          ctxSub.fillStyle = "#2563EB"; ctxSub.fill(); ctxSub.strokeStyle = "#1D4ED8"; ctxSub.stroke();
+          ctxSub.fillStyle = "#fff"; ctxSub.font = "bold 8.5px system-ui"; ctxSub.textAlign = "center"; ctxSub.textBaseline = "middle";
+          ctxSub.fillText("A", a.x, a.y);
+        });
+
+        // Unidades de producto AB desprendiéndose
+        moleculesAB.forEach(m => {
+          ctxSub.save(); ctxSub.globalAlpha = m.alpha;
+          ctxSub.beginPath(); ctxSub.arc(m.x - 4, m.y, RAD_A * 0.85, 0, Math.PI * 2); ctxSub.fillStyle = "#2563EB"; ctxSub.fill();
+          ctxSub.beginPath(); ctxSub.arc(m.x + 4, m.y, RAD_B * 0.85, 0, Math.PI * 2); ctxSub.fillStyle = "#D97706"; ctxSub.fill();
+          ctxSub.strokeStyle = "#fff"; ctxSub.lineWidth = 1.5; ctxSub.beginPath(); ctxSub.moveTo(m.x - 3, m.y); ctxSub.lineTo(m.x + 3, m.y); ctxSub.stroke();
+          ctxSub.restore();
+        });
+
+        // Destellos de choques eficaces
+        flashes.forEach(f => {
+          ctxSub.beginPath(); ctxSub.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+          ctxSub.fillStyle = `rgba(245, 158, 11, ${f.alpha * 0.5})`; ctxSub.fill();
+          ctxSub.strokeStyle = `rgba(255, 235, 120, ${f.alpha})`; ctxSub.stroke();
+        });
+      }
+
+      // Renderizado: Nivel Macroscópico (Tubo de ensayo y observación)
+      function renderMacro() {
+        ctxMac.clearRect(0, 0, W_MAC, H_MAC);
+        ctxMac.fillStyle = "#FAFBFD"; ctxMac.fillRect(0, 0, W_MAC, H_MAC);
+        const tW = 38, tH = 106, tX = W_MAC * 0.44 - tW / 2, tY = 16, rad = 19;
+
+        // Soporte
+        ctxMac.fillStyle = "#64748B"; ctxMac.fillRect(tX - 18, tY + 36, 18, 5);
+        ctxMac.fillStyle = "#334155"; ctxMac.fillRect(tX - 22, tY + 8, 4, 90);
+
+        // Líquido
+        ctxMac.save();
+        ctxMac.beginPath(); ctxMac.moveTo(tX + 2, 34); ctxMac.lineTo(tX + tW - 2, 34);
+        ctxMac.lineTo(tX + tW - 2, tY + tH - rad);
+        ctxMac.arc(tX + tW / 2, tY + tH - rad, rad - 2, 0, Math.PI, false);
+        ctxMac.fillStyle = "rgba(191, 219, 254, 0.45)"; ctxMac.fill();
+
+        // Sólido B en el fondo (proporcional a los átomos activos remanentes)
+        const activeB = particlesB.filter(b => b.active).length;
+        if (activeB > 0) {
+          const solidY = tY + tH - 14; ctxMac.fillStyle = "#D97706";
+          const ratio = activeB / MAX_B;
+          if (surfaceState === "entero") {
+            ctxMac.fillRect(tX + 11, solidY - 5 * ratio, 16 * ratio, 8 * ratio);
+          } else if (surfaceState === "trozos") {
+            [tX + 8, tX + 16, tX + 24].forEach((x, idx) => {
+              if (activeB > idx * 8) ctxMac.fillRect(x, solidY - 4 * ratio, 5 * ratio, 5 * ratio);
+            });
+          } else {
+            for (let p = 0; p < Math.min(18, activeB); p++) {
+              ctxMac.fillRect(tX + 6 + p * 1.4, solidY - 2 + (p % 3), 2.2, 2.2);
+            }
+          }
+        }
+
+        // Burbujas ascendentes
+        bubbles.forEach(b => {
+          ctxMac.beginPath(); ctxMac.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+          ctxMac.fillStyle = "rgba(255, 255, 255, 0.9)"; ctxMac.fill();
+          ctxMac.strokeStyle = "#3B82F6"; ctxMac.lineWidth = 0.8; ctxMac.stroke();
+        });
+        ctxMac.restore();
+
+        // Contorno de vidrio del tubo
+        ctxMac.beginPath(); ctxMac.moveTo(tX, tY); ctxMac.lineTo(tX, tY + tH - rad);
+        ctxMac.arc(tX + tW / 2, tY + tH - rad, rad, Math.PI, 0, true); ctxMac.lineTo(tX + tW, tY);
+        ctxMac.strokeStyle = "#94A3B8"; ctxMac.lineWidth = 2; ctxMac.stroke();
+        ctxMac.beginPath(); ctxMac.ellipse(tX + tW / 2, 34, tW / 2 - 2, 2.5, 0, 0, Math.PI * 2);
+        ctxMac.fillStyle = "rgba(147, 197, 253, 0.6)"; ctxMac.fill();
+
+        // Rótulos macroscópicos descriptivos
+        ctxMac.textAlign = "left"; ctxMac.textBaseline = "middle";
+        ctxMac.font = "bold 11px system-ui"; ctxMac.fillStyle = "#16202B";
+        ctxMac.fillText("Burbujeo observable", tX + tW + 14, 44);
+        ctxMac.font = "11px system-ui"; ctxMac.fillStyle = "#5A6B7B";
+        ctxMac.fillText("Desprendimiento AB(g):", tX + tW + 14, 62);
+
+        let cad = "Sin burbujas";
+        let colorCad = "#5A6B7B";
+        if (isFinished) {
+          cad = "Finalizado (v = 0)";
+          colorCad = "#8A5A00";
+        } else if (recentEffectiveTimer > 0) {
+          if (effectiveCollisions > 14 && temp >= 298) {
+            cad = "Rápido (efervescente)"; colorCad = "#1B7A4B";
+          } else if (effectiveCollisions > 3) {
+            cad = "Moderado"; colorCad = "#1F5C8B";
+          } else {
+            cad = "Lento"; colorCad = "#1F5C8B";
+          }
+        }
+        ctxMac.fillStyle = colorCad; ctxMac.font = "bold 11px system-ui";
+        ctxMac.fillText(cad, tX + tW + 14, 80);
+      }
+
+      // Renderizado: Gráfico en vivo (AB vs Tiempo)
+      function renderGraph() {
+        ctxGrp.clearRect(0, 0, W_GRP, H_GRP);
+        ctxGrp.fillStyle = "#FAFBFD"; ctxGrp.fillRect(0, 0, W_GRP, H_GRP);
+        const mL = 30, mR = 12, mT = 14, mB = 22, gW = W_GRP - mL - mR, gH = H_GRP - mT - mB;
+        const maxT = Math.max(30, simTime + 2);
+
+        // Grilla horizontal
+        ctxGrp.strokeStyle = "#E2E8F0"; ctxGrp.lineWidth = 1; ctxGrp.fillStyle = "#5A6B7B";
+        ctxGrp.font = "9px system-ui"; ctxGrp.textAlign = "right"; ctxGrp.textBaseline = "middle";
+        for (let i = 0; i <= 4; i++) {
+          const v = Math.round((MAX_B / 4) * i), y = mT + gH - (v / MAX_B) * gH;
+          ctxGrp.beginPath(); ctxGrp.moveTo(mL, y); ctxGrp.lineTo(mL + gW, y); ctxGrp.stroke();
+          ctxGrp.fillText(v, mL - 4, y);
+        }
+
+        // Grilla vertical
+        ctxGrp.textAlign = "center"; ctxGrp.textBaseline = "top";
+        for (let t = 0; t <= maxT; t += 10) {
+          const x = mL + (t / maxT) * gW;
+          ctxGrp.beginPath(); ctxGrp.moveTo(x, mT); ctxGrp.lineTo(x, mT + gH); ctxGrp.stroke();
+          ctxGrp.fillText(t + "s", x, mT + gH + 4);
+        }
+
+        // Ejes cartesianos
+        ctxGrp.strokeStyle = "#94A3B8"; ctxGrp.lineWidth = 1.4;
+        ctxGrp.beginPath(); ctxGrp.moveTo(mL, mT); ctxGrp.lineTo(mL, mT + gH); ctxGrp.lineTo(mL + gW, mT + gH); ctxGrp.stroke();
+
+        // Corrida guardada de comparación
+        if (savedGraph && savedGraph.length > 1) {
+          ctxGrp.save(); ctxGrp.setLineDash([4, 4]); ctxGrp.strokeStyle = "#7C8B9E"; ctxGrp.lineWidth = 2; ctxGrp.beginPath();
+          savedGraph.forEach((pt, idx) => {
+            const px = mL + Math.min(1, pt.t / maxT) * gW, py = mT + gH - (Math.min(MAX_B, pt.ab) / MAX_B) * gH;
+            if (idx === 0) ctxGrp.moveTo(px, py); else ctxGrp.lineTo(px, py);
+          });
+          ctxGrp.stroke(); ctxGrp.restore();
+        }
+
+        // Corrida actual
+        if (currentGraph.length > 1) {
+          ctxGrp.save(); ctxGrp.beginPath(); ctxGrp.strokeStyle = "#1F5C8B"; ctxGrp.lineWidth = 2.2;
+          currentGraph.forEach((pt, idx) => {
+            const px = mL + Math.min(1, pt.t / maxT) * gW, py = mT + gH - (Math.min(MAX_B, pt.ab) / MAX_B) * gH;
+            if (idx === 0) ctxGrp.moveTo(px, py); else ctxGrp.lineTo(px, py);
+          });
+          ctxGrp.stroke(); ctxGrp.restore();
+        }
+
+        ctxGrp.font = "bold 9px system-ui"; ctxGrp.fillStyle = "#1F5C8B"; ctxGrp.fillText("AB", mL + 10, mT - 6);
+      }
+
+      function loop(now) {
+        const dt = Math.min((now - lastTime) / 1000, 0.05); lastTime = now;
+        if (isRunning) updatePhysics(dt);
+        renderSubmicro(); renderMacro(); renderGraph();
+        requestAnimationFrame(loop);
+      }
+
+      // 3. Controles y eventos con prevención de estados físicamente inconsistentes
+      btPlay.addEventListener("click", () => {
+        isRunning = !isRunning;
+        if (isRunning) { lastTime = performance.now(); icPlay.innerHTML = "&#10074;&#10074;"; txPlay.textContent = "Pausar"; }
+        else { icPlay.innerHTML = "&#9654;"; txPlay.textContent = "Reanudar"; }
+      });
+
+      btReset.addEventListener("click", () => resetSimulation(true));
+
+      btSave.addEventListener("click", () => {
+        savedGraph = JSON.parse(JSON.stringify(currentGraph));
+        legSaved.style.display = "inline"; btClear.style.display = "inline-flex";
+        resetSimulation(true);
+      });
+
+      btClear.addEventListener("click", () => {
+        savedGraph = null; legSaved.style.display = "none"; btClear.style.display = "none";
+      });
+
+      // Temperatura (280 K, 298 K, 330 K): modifica la energía cinética y velocidad media
+      const tBtns = [document.getElementById("bt-t1"), document.getElementById("bt-t2"), document.getElementById("bt-t3")];
+      tBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+          tBtns.forEach(b => b.classList.remove("active")); btn.classList.add("active");
+          temp = parseInt(btn.getAttribute("data-t"), 10);
+          lblT.textContent = `${temp} K (${temp - 273} °C)`;
+          const spdFactor = Math.sqrt(temp / 298);
+          particlesA.forEach(p => {
+            const cur = Math.hypot(p.vx, p.vy) || 1, tgt = spdFactor * 1.8;
+            p.vx = (p.vx / cur) * tgt; p.vy = (p.vy / cur) * tgt;
+          });
+        });
+      });
+
+      // Concentración de A: al cambiar la condición inicial del lote reactivo, reinicia el ensayo actual para asegurar conservación de masa
+      const cBtns = [document.getElementById("bt-c1"), document.getElementById("bt-c2"), document.getElementById("bt-c3")];
+      cBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+          cBtns.forEach(b => b.classList.remove("active")); btn.classList.add("active");
+          concA = parseInt(btn.getAttribute("data-c"), 10);
+          lblC.textContent = concA === 15 ? "Baja (15 part.)" : (concA === 30 ? "Media (30 part.)" : "Alta (45 part.)");
+          resetSimulation(true);
+        });
+      });
+
+      // Superficie del sólido B: al cambiar el estado de división inicial, reinicia el ensayo actual garantizando coherencia estequiométrica
+      const sBtns = [document.getElementById("bt-s1"), document.getElementById("bt-s2"), document.getElementById("bt-s3")];
+      sBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+          sBtns.forEach(b => b.classList.remove("active")); btn.classList.add("active");
+          surfaceState = btn.getAttribute("data-s");
+          const names = { entero: "Entero", trozos: "Trozos", polvo: "Polvo (máx. área)" };
+          lblS.textContent = names[surfaceState];
+          resetSimulation(true);
+        });
+      });
+
+      // Catalizador: actúa disminuyendo Ea sin alterar la cantidad de átomos
+      btCat.addEventListener("click", () => {
+        hasCatalyst = !hasCatalyst; btCat.classList.toggle("active", hasCatalyst);
+        btCat.setAttribute("aria-pressed", hasCatalyst.toString());
+        lblCat.textContent = hasCatalyst ? "Con catalizador (Ea baja)" : "Sin catalizador";
+        stCat.textContent = hasCatalyst ? "Activo (Ea reducida)" : "Inactivo";
+      });
+
+      // Accesibilidad por teclado: Barra espaciadora para pausar/reanudar
+      window.addEventListener("keydown", (e) => {
+        if (e.code === "Space" && e.target === document.body) { e.preventDefault(); btPlay.click(); }
+      });
+
+      // Inicio
+      resetSimulation(false);
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+    })();
+  </script>
 </body>
 </html>
